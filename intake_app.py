@@ -92,39 +92,23 @@ def badge(ok: bool, label: str):
     css = "badge-ok" if ok else "badge-no"
     st.markdown(f"<div class='{css}'>{label}</div>", unsafe_allow_html=True)
 
-def script_block(text: str):
-    if not text: return
-    st.markdown(f"<div class='script'>{text}</div>", unsafe_allow_html=True)
-
-def yesno(label, key, script_yes=None, script_no=None, default="No", horizontal=True):
-    if key not in st.session_state:
-        st.session_state[key] = default
-    val = st.radio(label, ["No","Yes"], key=key, horizontal=horizontal, index=(0 if st.session_state[key]=="No" else 1))
-    if val == "Yes" and script_yes: script_block(script_yes)
-    if val == "No" and script_no: script_block(script_no)
-    return val
-
-def pick(label, options, key, scripts_by_value=None, horizontal=False, default_index=0):
-    if key not in st.session_state:
-        st.session_state[key] = options[default_index]
-    val = st.radio(label, options, key=key, horizontal=horizontal, index=options.index(st.session_state[key]))
-    if scripts_by_value and val in scripts_by_value:
-        script_block(scripts_by_value[val])
-    return val
-
 def init_once(key, value):
     if key not in st.session_state:
         st.session_state[key] = value
 
+def channel_key(name: str) -> str:
+    # safe key: lowercase, underscores
+    return "in_date_" + name.lower().replace("/", "_").replace(" ", "_")
+
 # =========================
-# SESSION STATE ROOTS
+# SESSION STATE ROOTS & DEFAULTS
 # =========================
-init_once("step", "intake")  # intake -> firm_questions
+init_once("step", "intake")         # "intake" or "firm_questions"
 init_once("selected_firm", None)
 init_once("answers_wag", {})
 init_once("answers_tri", {})
 
-# ---------- Intake keys initialize (defaults) ----------
+# Intake defaults
 init_once("in_client", "")
 init_once("in_company", "Uber")
 init_once("in_state", "California")
@@ -135,12 +119,14 @@ init_once("in_inside_near", True)
 init_once("in_has_atty", False)
 init_once("in_incident_time", time(21,0))
 init_once("in_incident_date", TODAY.date())
-
 init_once("in_reported_to", ["Police"])
-# per-channel dates
-for ch in ["Rideshare company","Police","Therapist","Medical professional","Physician","Audio/Video evidence"]:
-    init_once(f"in_date_{ch}", TODAY.date())
-# family report datetime
+
+# Prepare per-channel date defaults
+ALL_CHANNELS = ["Rideshare company","Police","Therapist","Medical professional","Physician","Family/Friends","Audio/Video evidence"]
+for ch in ALL_CHANNELS:
+    init_once(channel_key(ch), TODAY.date())
+
+# Family/Friends datetime defaults
 init_once("in_family_report_date", TODAY.date())
 init_once("in_family_report_time", time(21,0))
 
@@ -197,96 +183,92 @@ with st.expander("Injury & Sexual Assault: Tiers and State SOL Extensions (Refer
 def render_intake_and_decision():
     st.header("Intake")
 
+    # --- top row ---
     top1, top2, top3 = st.columns([1,1,1])
     with top1:
-        st.session_state.in_client = st.text_input("Client Name", value=st.session_state.in_client, key="in_client")
+        st.text_input("Client Name", key="in_client")
     with top2:
-        st.session_state.in_company = st.selectbox("Rideshare company", ["Uber","Lyft"], index=["Uber","Lyft"].index(st.session_state.in_company), key="in_company")
+        st.selectbox("Rideshare company", ["Uber","Lyft"], key="in_company", index=["Uber","Lyft"].index(st.session_state.in_company))
     with top3:
-        # ensure index exists
         state_list = STATES
         if st.session_state.in_state not in state_list:
             st.session_state.in_state = "California"
-        st.session_state.in_state = st.selectbox("Incident State", state_list, index=state_list.index(st.session_state.in_state), key="in_state")
+        st.selectbox("Incident State", state_list, key="in_state", index=state_list.index(st.session_state.in_state))
 
+    # --- row 2 ---
     row2 = st.columns(6)
     with row2[0]:
-        st.session_state.in_female_rider = st.toggle("Female rider", value=st.session_state.in_female_rider, key="in_female_rider")
+        st.toggle("Female rider", key="in_female_rider", value=st.session_state.in_female_rider)
     with row2[1]:
-        st.session_state.in_receipt = st.toggle("Receipt provided (email/PDF/app)", value=st.session_state.in_receipt, key="in_receipt")
+        st.toggle("Receipt provided (email/PDF/app)", key="in_receipt", value=st.session_state.in_receipt)
     with row2[2]:
-        st.session_state.in_gov_id = st.toggle("ID provided", value=st.session_state.in_gov_id, key="in_gov_id")
+        st.toggle("ID provided", key="in_gov_id", value=st.session_state.in_gov_id)
     with row2[3]:
-        st.session_state.in_inside_near = st.toggle("Incident inside/just outside/started near car", value=st.session_state.in_inside_near, key="in_inside_near")
+        st.toggle("Incident inside/just outside/started near car", key="in_inside_near", value=st.session_state.in_inside_near)
     with row2[4]:
-        st.session_state.in_has_atty = st.toggle("Already has an attorney", value=st.session_state.in_has_atty, key="in_has_atty")
+        st.toggle("Already has an attorney", key="in_has_atty", value=st.session_state.in_has_atty)
     with row2[5]:
-        st.session_state.in_incident_time = st.time_input("Incident Time", value=st.session_state.in_incident_time, key="in_incident_time")
-    st.session_state.in_incident_date = st.date_input("Incident Date", value=st.session_state.in_incident_date, key="in_incident_date")
+        st.time_input("Incident Time", key="in_incident_time", value=st.session_state.in_incident_time)
+    st.date_input("Incident Date", key="in_incident_date", value=st.session_state.in_incident_date)
 
+    # --- reporting ---
     st.session_state.in_reported_to = st.multiselect(
         "Reported To (choose all that apply)",
-        ["Rideshare company","Police","Therapist","Medical professional","Physician","Family/Friends","Audio/Video evidence"],
+        ALL_CHANNELS,
         default=st.session_state.in_reported_to,
         key="in_reported_to"
     )
 
-    # channel dates
+    # per-channel dates
     report_dates = {}
-    if "Rideshare company" in st.session_state.in_reported_to:
-        st.session_state.in_date_Rideshare_company = st.date_input("Date reported to Rideshare company", value=st.session_state.in_date_Rideshare_company, key="in_date_Rideshare company")
-        report_dates["Rideshare company"] = st.session_state["in_date_Rideshare company"]
-    if "Police" in st.session_state.in_reported_to:
-        st.session_state.in_date_Police = st.date_input("Date reported to Police", value=st.session_state.in_date_Police, key="in_date_Police")
-        report_dates["Police"] = st.session_state.in_date_Police
-    if "Therapist" in st.session_state.in_reported_to:
-        st.session_state.in_date_Therapist = st.date_input("Date reported to Therapist", value=st.session_state.in_date_Therapist, key="in_date_Therapist")
-        report_dates["Therapist"] = st.session_state.in_date_Therapist
-    if "Medical professional" in st.session_state.in_reported_to:
-        st.session_state.in_date_Medical_professional = st.date_input("Date reported to Medical professional", value=st.session_state.in_date_Medical_professional, key="in_date_Medical professional")
-        report_dates["Medical professional"] = st.session_state["in_date_Medical professional"]
-    if "Physician" in st.session_state.in_reported_to:
-        st.session_state.in_date_Physician = st.date_input("Date reported to Physician", value=st.session_state.in_date_Physician, key="in_date_Physician")
-        report_dates["Physician"] = st.session_state.in_date_Physician
-    if "Audio/Video evidence" in st.session_state.in_reported_to:
-        st.session_state.in_date_Audio_Video_evidence = st.date_input("Date of Audio/Video evidence", value=st.session_state.in_date_Audio_Video_evidence, key="in_date_Audio/Video evidence")
-        report_dates["Audio/Video evidence"] = st.session_state["in_date_Audio/Video evidence"]
+    for ch in ALL_CHANNELS:
+        if ch in st.session_state.in_reported_to:
+            ck = channel_key(ch)
+            st.date_input(f"Date for: {ch}", key=ck, value=st.session_state[ck])
+            report_dates[ch] = st.session_state[ck]
 
+    # Family/Friends datetime
     family_report_dt = None
     if "Family/Friends" in st.session_state.in_reported_to:
         fr_c1, fr_c2 = st.columns([1,1])
-        st.session_state.in_family_report_date = fr_c1.date_input("Date reported to Family/Friends", value=st.session_state.in_family_report_date, key="in_family_report_date")
-        st.session_state.in_family_report_time = fr_c2.time_input("Time reported to Family/Friends", value=st.session_state.in_family_report_time, key="in_family_report_time")
+        with fr_c1:
+            st.date_input("Date reported to Family/Friends", key="in_family_report_date", value=st.session_state.in_family_report_date)
+        with fr_c2:
+            st.time_input("Time reported to Family/Friends", key="in_family_report_time", value=st.session_state.in_family_report_time)
         family_report_dt = datetime.combine(st.session_state.in_family_report_date, st.session_state.in_family_report_time)
 
+    # --- disqualifiers ---
     dq1, dq2, dq3 = st.columns([1,1,1])
     with dq1:
-        st.session_state.in_weapon = st.selectbox("Weapon involved?", ["No","Non-lethal defensive (e.g., pepper spray)","Yes"], index=["No","Non-lethal defensive (e.g., pepper spray)","Yes"].index(st.session_state.in_weapon), key="in_weapon")
+        st.selectbox("Weapon involved?", ["No","Non-lethal defensive (e.g., pepper spray)","Yes"], key="in_weapon",
+                     index=["No","Non-lethal defensive (e.g., pepper spray)","Yes"].index(st.session_state.in_weapon))
     with dq2:
-        st.session_state.in_verbal_only = st.toggle("Verbal abuse only (no sexual contact/acts)", value=st.session_state.in_verbal_only, key="in_verbal_only")
+        st.toggle("Verbal abuse only (no sexual contact/acts)", key="in_verbal_only", value=st.session_state.in_verbal_only)
     with dq3:
-        st.session_state.in_attempt_only = st.toggle("Attempt/minor contact only", value=st.session_state.in_attempt_only, key="in_attempt_only")
+        st.toggle("Attempt/minor contact only", key="in_attempt_only", value=st.session_state.in_attempt_only)
 
+    # --- acts ---
     st.subheader("Acts (check what applies)")
     c1, c2 = st.columns(2)
     with c1:
-        st.session_state.in_rape = st.checkbox("Rape/Penetration", value=st.session_state.in_rape, key="in_rape")
-        st.session_state.in_forced_oral = st.checkbox("Forced Oral/Forced Touching", value=st.session_state.in_forced_oral, key="in_forced_oral")
-        st.session_state.in_touching = st.checkbox("Touching/Kissing w/o Consent", value=st.session_state.in_touching, key="in_touching")
+        st.checkbox("Rape/Penetration", key="in_rape", value=st.session_state.in_rape)
+        st.checkbox("Forced Oral/Forced Touching", key="in_forced_oral", value=st.session_state.in_forced_oral)
+        st.checkbox("Touching/Kissing w/o Consent", key="in_touching", value=st.session_state.in_touching)
     with c2:
-        st.session_state.in_exposure = st.checkbox("Indecent Exposure", value=st.session_state.in_exposure, key="in_exposure")
-        st.session_state.in_masturb = st.checkbox("Masturbation Observed", value=st.session_state.in_masturb, key="in_masturb")
-        st.session_state.in_kidnap = st.checkbox("Kidnapping Off-Route w/ Threats", value=st.session_state.in_kidnap, key="in_kidnap")
-        st.session_state.in_imprison = st.checkbox("False Imprisonment w/ Threats", value=st.session_state.in_imprison, key="in_imprison")
-        st.session_state.in_felony = st.toggle("Client has felony record", value=st.session_state.in_felony, key="in_felony")
+        st.checkbox("Indecent Exposure", key="in_exposure", value=st.session_state.in_exposure)
+        st.checkbox("Masturbation Observed", key="in_masturb", value=st.session_state.in_masturb)
+        st.checkbox("Kidnapping Off-Route w/ Threats", key="in_kidnap", value=st.session_state.in_kidnap)
+        st.checkbox("False Imprisonment w/ Threats", key="in_imprison", value=st.session_state.in_imprison)
+        st.toggle("Client has felony record", key="in_felony", value=st.session_state.in_felony)
 
+    # --- wrongful death ---
     st.subheader("Wrongful Death")
     wd_col1, wd_col2 = st.columns([1,2])
     with wd_col1:
-        st.session_state.in_wd = st.toggle("Wrongful Death?", value=st.session_state.in_wd, key="in_wd")
+        st.toggle("Wrongful Death?", key="in_wd", value=st.session_state.in_wd)
     with wd_col2:
         if st.session_state.in_wd:
-            st.session_state.in_date_of_death = st.date_input("Date of Death", value=st.session_state.in_date_of_death, key="in_date_of_death")
+            st.date_input("Date of Death", key="in_date_of_death", value=st.session_state.in_date_of_death)
 
     # ==== DECISION ====
     st.header("Decision")
@@ -337,8 +319,10 @@ def render_intake_and_decision():
     # Triten earliest report <= 14d
     earliest_report_date = None
     all_dates = [d for d in report_dates.values() if d]
-    if state_data["FamilyReportDateTime"]: all_dates.append(state_data["FamilyReportDateTime"].date())
-    if all_dates: earliest_report_date = min(all_dates)
+    if state_data["FamilyReportDateTime"]:
+        all_dates.append(state_data["FamilyReportDateTime"].date())
+    if all_dates:
+        earliest_report_date = min(all_dates)
     triten_report_ok = (earliest_report_date - incident_dt.date()).days <= 14 if earliest_report_date else False
 
     # WAGSTAFF rules
@@ -461,7 +445,7 @@ def render_intake_and_decision():
             st.session_state.step = "firm_questions"
             st.session_state.latest_decision = decision
             st.session_state.intake_payload = state_data
-            st.experimental_rerun()
+            st.rerun()
         if disabled:
             st.caption("Wagstaff not eligible based on screening.")
     with cols[1]:
@@ -471,10 +455,11 @@ def render_intake_and_decision():
             st.session_state.step = "firm_questions"
             st.session_state.latest_decision = decision
             st.session_state.intake_payload = state_data
-            st.experimental_rerun()
+            st.rerun()
         if disabled:
             st.caption("Triten not eligible based on screening.")
 
+    # EXPORT
     st.subheader("Export")
     export_df = pd.concat([pd.DataFrame([state_data]), df], axis=1)
     csv_bytes = export_df.to_csv(index=False).encode("utf-8")
@@ -483,33 +468,23 @@ def render_intake_and_decision():
     st.caption("Firm rules: Triten = Uber & Lyft; Waggy = Uber only; Priority = Triten if both eligible. Wagstaff: Family/Friends-only report must be within 24h; file 45 days before SOL; no felonies, no weapons (non-lethal defensive OK). Triten: earliest report within 2 weeks.")
 
 # =========================
-# WAGSTAFF QUESTIONS (live scripts)
+# WAGSTAFF QUESTIONS (placeholder; your long script section can plug in here)
 # =========================
 def render_wagstaff_questions():
     st.header("Wagstaff – Detailed Questionnaire")
-    st.caption("Scripts change instantly based on Yes/No selections.")
-
-    # minimal example content; your full question set from the previous version remains available
-    # (omitted here to keep focus on persistence fix).
-    # Use Back to Intake to verify persistence.
-
+    st.info("Return to Intake to verify state persistence.")
     if st.button("Back to Intake"):
         st.session_state.step = "intake"
-        st.experimental_rerun()
-
-    st.info("Navigate back with the button above. Intake entries will remain intact.")
+        st.rerun()
 
 # =========================
-# TRITEN PLACEHOLDER
+# TRITEN QUESTIONS (placeholder)
 # =========================
 def render_triten_questions():
     st.header("Triten – Follow-up Questions (placeholder)")
-
     if st.button("Back to Intake"):
         st.session_state.step = "intake"
-        st.experimental_rerun()
-
-    st.info("Navigate back with the button above. Intake entries will remain intact.")
+        st.rerun()
 
 # =========================
 # ROUTER
@@ -525,4 +500,4 @@ elif st.session_state.step == "firm_questions":
     else:
         st.warning("No firm selected. Returning to intake.")
         st.session_state.step = "intake"
-        st.experimental_rerun()
+        st.rerun()
