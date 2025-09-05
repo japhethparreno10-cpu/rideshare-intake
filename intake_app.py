@@ -208,7 +208,15 @@ incident_date = st.date_input("Incident Date", value=datetime(2025,8,1))
 # Reported To selection
 reported_to = st.multiselect(
     "Reported To (choose all that apply)",
-    ["Rideshare company","Police","Therapist","Medical professional","Family/Friends","Audio/Video evidence"],
+    [
+        "Rideshare company",
+        "Police",
+        "Therapist",
+        "Medical professional",
+        "Physician",              # NEW
+        "Family/Friends",
+        "Audio/Video evidence"
+    ],
     default=["Police"]
 )
 
@@ -222,6 +230,8 @@ if "Therapist" in reported_to:
     report_dates["Therapist"] = st.date_input("Date reported to Therapist", value=incident_date)
 if "Medical professional" in reported_to:
     report_dates["Medical professional"] = st.date_input("Date reported to Medical professional", value=incident_date)
+if "Physician" in reported_to:  # NEW
+    report_dates["Physician"] = st.date_input("Date reported to Physician", value=incident_date)
 if "Audio/Video evidence" in reported_to:
     report_dates["Audio/Video evidence"] = st.date_input("Date of Audio/Video evidence", value=incident_date)
 
@@ -322,24 +332,20 @@ wagstaff_time_ok = (TODAY <= wagstaff_deadline) if wagstaff_deadline else True
 earliest_report_date = None
 all_dates = []
 
-# Dates from channel-specific date inputs
 for ch, d in data["ReportDates"].items():
     if d: all_dates.append(d)
 
-# Family/Friends date (take date part from datetime if provided)
 if data["FamilyReportDateTime"]:
     all_dates.append(data["FamilyReportDateTime"].date())
 
 if all_dates:
     earliest_report_date = min(all_dates)
 
-# Triten requires report within 14 days
 triten_report_ok = True
 if earliest_report_date:
     triten_report_ok = (earliest_report_date - data["IncidentDateTime"].date()).days <= 14
 else:
-    # If nothing was reported at all, Triten fails the reporting requirement
-    triten_report_ok = False
+    triten_report_ok = False  # nothing reported at all → fails Triten reporting requirement
 
 # SA note
 sa_note = ""
