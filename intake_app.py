@@ -23,6 +23,7 @@ h3 {font-size: 1.25rem !important;}
 # ---------- CONSTANTS ----------
 TODAY = datetime(2025, 9, 4)  # current context date
 
+# General tort SOL by state (years)
 TORT_SOL = {
     "Kentucky":1,"Louisiana":1,"Tennessee":1,
     "Alabama":2,"Alaska":2,"Arizona":2,"California":2,"Colorado":2,"Connecticut":2,"Delaware":2,"Georgia":2,
@@ -36,6 +37,7 @@ TORT_SOL = {
     "Maine":6,"North Dakota":6,
 }
 
+# Wrongful death SOL by state (years)
 WD_SOL = {
     "Alabama":2,"Alaska":2,"Arizona":2,"Arkansas":3,"California":2,"Colorado":2,"Connecticut":2,"Delaware":2,
     "Florida":2,"Georgia":2,"Hawaii":2,"Idaho":2,"Illinois":2,"Indiana":2,"Iowa":2,"Kansas":2,"Kentucky":1,
@@ -46,6 +48,7 @@ WD_SOL = {
     "West Virginia":2,"Wisconsin":3,"Wyoming":2
 }
 
+# Sexual assault SOL extensions quick reference
 SA_EXT = {
     "California":{"rape_penetration":"No SOL","other_touching":"No SOL"},
     "New York":{"rape_penetration":"10 years","other_touching":"10 years"},
@@ -54,6 +57,7 @@ SA_EXT = {
     "Connecticut":{"rape_penetration":"No SOL","other_touching":"2 years"},
 }
 
+# Non-lethal defensive items list (displayed when chosen)
 NON_LETHAL_ITEMS = [
     "Pepper Spray - Incapacitates with eye/respiratory irritation",
     "Personal Alarm - Loud noise deterrent",
@@ -84,14 +88,43 @@ NON_LETHAL_ITEMS = [
 STATES = sorted(set(list(TORT_SOL.keys()) + list(WD_SOL.keys()) + ["D.C."]))
 
 # ---------- HELPERS ----------
-def derive_tier(data) -> str:
-    t1 = data["Rape/Penetration"] or data["Forced Oral/Forced Touching"]
-    t2 = data["Touching/Kissing w/o Consent"] or data["Indecent Exposure"] or data["Masturbation Observed"]
-    t3 = data["Kidnapping Off-Route w/ Threats"] or data["False Imprisonment w/ Threats"]
-    if t1: return "Tier 1"
-    if t2: return "Tier 2"
-    if t3: return "Tier 3"
-    return "Unclear"
+def tier_and_aggravators(data):
+    """
+    Implements severity-first tiering exactly as specified:
+    - Tier 1 has priority: rape/sodomy; forced oral; forced touching.
+    - Tier 2 next: touching/kissing mouth/private parts; indecent exposure; masturbation.
+    - Tier 3 is NOT a standalone tier. It is an aggravator that requires Tier 1 or Tier 2:
+        - Kidnapping (off-route) w/ clear sexual or extreme physical threats
+        - False imprisonment w/ clear sexual or extreme physical threats
+    Returns (tier_label, aggravators_list).
+    """
+    t1 = bool(data["Rape/Penetration"] or data["Forced Oral/Forced Touching"])
+    t2 = bool(data["Touching/Kissing w/o Consent"] or data["Indecent Exposure"] or data["Masturbation Observed"])
+    aggr_kidnap = bool(data["Kidnapping Off-Route w/ Threats"])
+    aggr_imprison = bool(data["False Imprisonment w/ Threats"])
+    aggr = []
+    if aggr_kidnap: aggr.append("Kidnapping w/ threats")
+    if aggr_imprison: aggr.append("False imprisonment w/ threats")
+
+    # Severity-first: pick Tier 1 if present, else Tier 2, else Unclear.
+    if t1:
+        base = "Tier 1"
+    elif t2:
+        base = "Tier 2"
+    else:
+        # If only kidnapping/imprisonment are checked without any Tier 1/2 act,
+        # this does NOT constitute Tier 3 per the rule "must have Tier 1 or 2".
+        base = "Unclear"
+
+    # Label with aggravators if (and only if) base is Tier 1 or Tier 2 and aggravators were checked
+    if base in ("Tier 1","Tier 2") and aggr:
+        label = f"{base} (+ Aggravators: {', '.join(aggr)})"
+    else:
+        label = base
+
+    # Also return a machine-friendly bool to say if aggravators are present while valid (T1/T2)
+    valid_aggravators = (base in ("Tier 1","Tier 2")) and len(aggr) > 0
+    return label, valid_aggravators
 
 def add_years(date_obj, years):
     return date_obj + relativedelta(years=+int(years))
@@ -106,7 +139,50 @@ def badge(ok: bool, label: str):
 # ---------- UI ----------
 st.title("Rideshare Intake Qualifier")
 
-# INTAKE (TOP, FULL-WIDTH)
+# Helpful references
+with st.expander("Injury & Sexual Assault: Tiers and State SOL Extensions (Reference)"):
+    st.markdown("""
+**Tier 1**  
+- Rape or sodomy  
+- Forcing someone to touch themselves  
+- Forcing someone to perform oral sex  
+
+**Tier 2** *(must include touching/kissing category)*  
+- Touching/kissing mouth/private parts without consent  
+- Indecent exposure (showing private parts inappropriately)  
+- Masturbation in front of someone without their consent  
+
+**Tier 3 (Aggravators; requires Tier 1 or Tier 2)**  
+- Kidnapping (off intended route) **with clear sexual/extreme physical threats**  
+- False imprisonment (driver refuses to stop/locked in) **with clear sexual/extreme physical threats**
+
+**State Sexual Assault SOL Extensions (quick look)**  
+- **California:** No SOL for touching of sexual body parts, rape, digital/oral/vaginal/anal penetration  
+- **New York:** 10-year SOL for touching of sexual body parts, rape, digital/oral/vaginal/anal penetration  
+- **Texas:** 5-year SOL for rape/penetration of mouth/anus/vagina; **2-year** SOL for all other conduct  
+- **Illinois:** No SOL for rape/penetration; **2-year** SOL for other conduct  
+- **Connecticut:** No SOL for rape/penetration; **2-year** SOL for other conduct
+""")
+
+with st.expander("Elements of Statement of the Case (for RIDESHARE)"):
+    st.markdown("""
+1. Date of ride  
+2. Name of PC  
+3. “reserved a ride with [name of Rideshare company]”  
+4. General description of pick-up and drop-off (e.g., home → work)  
+5. Purpose of ride (only if not self-evident)  
+6. Brief/categorical description (assaulted, unwanted touching, groped, kidnapped, etc.)  
+7. Person or entity PC reported incident to  
+""")
+
+with st.expander("Contacts"):
+    st.markdown("""
+**Triten Law** — 1015 15th Street NW, Washington, DC 20005 — **202-519-6715**  
+**Wagstaff Legal Assistants:** Lorenia 213-347-9246 • Kim 213-770-1340 • Nate 623-254-7182  
+*(Triten booking link: not yet available)*
+""")
+
+# ========== INTAKE (TOP, FULL-WIDTH) ==========
 st.markdown("<div class='section'></div>", unsafe_allow_html=True)
 st.header("Intake")
 
@@ -168,7 +244,7 @@ with wd_col1:
 with wd_col2:
     date_of_death = st.date_input("Date of Death", value=datetime(2025,8,10)) if wd else None
 
-# DECISION (BOTTOM, FULL-WIDTH)
+# ========== DECISION (BOTTOM, FULL-WIDTH, BIG) ==========
 st.markdown("<div class='section'></div>", unsafe_allow_html=True)
 st.header("Decision")
 
@@ -200,9 +276,10 @@ data = {
     "DateOfDeath": datetime.combine(date_of_death, datetime.min.time()) if wd and date_of_death else None
 }
 
-tier = derive_tier(data)
+# Tier with severity-first + aggravators requirement
+tier_label, has_valid_aggravators = tier_and_aggravators(data)
 
-# Common requirements
+# Common requirements (both firms)
 common_ok = all([
     data["Female Rider"],
     data["Receipt"],
@@ -222,10 +299,11 @@ triten_report_ok = (data["ReportedDate"] - data["IncidentDate"]).days <= 14
 
 # SA note
 sa_note = ""
-if state in SA_EXT and tier in ("Tier 1","Tier 2"):
-    sa_note = (f"{state}: rape/penetration SOL = {SA_EXT[state]['rape_penetration']}"
-               if tier=="Tier 1"
-               else f"{state}: other touching SOL = {SA_EXT[state]['other_touching']}")
+if state in SA_EXT and ("Tier 1" in tier_label or "Tier 2" in tier_label):
+    if "Tier 1" in tier_label:
+        sa_note = f"{state}: rape/penetration SOL = {SA_EXT[state]['rape_penetration']}" if state in SA_EXT else ""
+    else:
+        sa_note = f"{state}: other touching SOL = {SA_EXT[state]['other_touching']}" if state in SA_EXT else ""
 
 # Wrongful death note
 wd_note = ""
@@ -254,10 +332,10 @@ if reported_to_set and reported_to_set == {"Family/Friends"}:
     if not same_day_family_ok:
         wag_disq.append("Reported only to Family/Friends, but not on same day → fails Wagstaff reporting rule")
 
+# Wagstaff eligibility
+base_tier_ok = ("Tier 1" in tier_label) or ("Tier 2" in tier_label)  # Unclear does not pass
 wag_ok = (
-    common_ok and wagstaff_time_ok and same_day_family_ok
-    and (tier in ("Tier 1","Tier 2","Tier 3"))
-    and len(wag_disq) == 0
+    common_ok and wagstaff_time_ok and same_day_family_ok and base_tier_ok and len(wag_disq) == 0
 )
 
 # ---------- TRITEN RULES (explicit reasons) ----------
@@ -271,7 +349,7 @@ if data["HasAtty"]:
 if not triten_report_ok:
     tri_disq.append("Report not within 2 weeks → Triten requirement")
 
-triten_ok = common_ok and triten_report_ok and (tier in ("Tier 1","Tier 2","Tier 3")) and len(tri_disq) == 0
+triten_ok = common_ok and triten_report_ok and base_tier_ok and len(tri_disq) == 0
 
 # Company rule: Uber → Wagstaff only; Lyft → both
 company_note = "Uber → Wagstaff only" if company=="Uber" else "Lyft → Wagstaff or Triten"
@@ -284,7 +362,7 @@ if company=="Uber":
 b1, b2, b3 = st.columns([1,1,1])
 with b1:
     st.markdown(f"<div class='badge-note'>Tier</div>", unsafe_allow_html=True)
-    badge(True, tier if tier!="Unclear" else "Tier unclear")
+    badge(True, tier_label if tier_label!="Unclear" else "Tier unclear")
 with b2:
     st.markdown(f"<div class='badge-note'>Wagstaff</div>", unsafe_allow_html=True)
     badge(wag_ok, "Eligible" if wag_ok else "Not Eligible")
@@ -293,14 +371,35 @@ with b3:
     badge(triten_ok, "Eligible" if triten_ok else "Not Eligible")
 
 # Decision table (wide)
+# Build explicit reasons text (bulleted-like string)
+def reasons_text(ok, disq_list, common_ok, time_ok, same_day_ok, base_tier_ok, firm):
+    if ok:
+        return "Meets screen."
+    reasons = []
+    if not common_ok:
+        reasons.append("Missing common requirements (must be female rider, have receipt & ID, incident inside/near car, and no current attorney).")
+    if firm == "Wagstaff" and not time_ok:
+        reasons.append("Past Wagstaff filing window (must file 45 days before SOL).")
+    if firm == "Wagstaff" and not same_day_ok and reported_to_set == {"Family/Friends"}:
+        reasons.append("Reported only to Family/Friends, but not on same day.")
+    if not base_tier_ok:
+        reasons.append("Tier unclear (select Tier 1 or Tier 2 qualifying acts).")
+    if disq_list:
+        reasons.extend(disq_list)
+    return " ; ".join(reasons)
+
+wag_reasons = reasons_text(wag_ok, wag_disq, common_ok, wagstaff_time_ok, same_day_family_ok, base_tier_ok, "Wagstaff")
+tri_reasons = reasons_text(triten_ok, tri_disq, common_ok, True, True, base_tier_ok, "Triten")
+
 decision = {
     "Rideshare Company Rule": company_note,
+    "Tier (severity-first)": tier_label,
     "General Tort SOL (yrs)": sol_years,
     "SOL End (est.)": fmt_date(sol_end),
     "Wagstaff file-by (SOL-45d)": fmt_date(wagstaff_deadline),
     "Sexual Assault Extension Note": sa_note if sa_note else "—",
-    "Wagstaff Reasons/Notes": "Meets screen." if wag_ok else "; ".join(wag_disq) if wag_disq else "Not eligible (unspecified).",
-    "Triten Reasons/Notes": "Meets screen." if triten_ok else "; ".join(tri_disq) if tri_disq else "Not eligible (unspecified).",
+    "Wagstaff Reasons/Notes": wag_reasons if wag_reasons else "—",
+    "Triten Reasons/Notes": tri_reasons if tri_reasons else "—",
     "Wrongful Death Note": wd_note if wd_note else "—"
 }
 
@@ -309,7 +408,7 @@ if data["Weapon"] == "Non-lethal defensive (e.g., pepper spray)":
     decision["Weapon Note"] = "Allowed (non-lethal defensive item). Examples: " + "; ".join(NON_LETHAL_ITEMS)
 
 df = pd.DataFrame([decision])
-st.dataframe(df, use_container_width=True, height=340)
+st.dataframe(df, use_container_width=True, height=380)
 
 # Export block
 st.subheader("Export")
@@ -317,4 +416,4 @@ export_df = pd.concat([pd.DataFrame([data]), df], axis=1)
 csv_bytes = export_df.to_csv(index=False).encode("utf-8")
 st.download_button("Download CSV (intake + decision)", data=csv_bytes, file_name="intake_decision.csv", mime="text/csv")
 
-st.caption("Wagstaff: no felonies, no weapons (non-lethal defensive allowed), no verbal/attempt-only; must file 45 days before SOL; Family/Friends-only reports must be same day. Triten: felonies OK, weapons OK, report must be within 2 weeks. Uber → Wagstaff only; Lyft → both.")
+st.caption("Wagstaff: no felonies, no weapons (non-lethal defensive allowed), no verbal/attempt-only; file 45 days before SOL; Family/Friends-only reports must be same day. Triten: felonies OK, weapons OK, report within 2 weeks. Uber → Wagstaff only; Lyft → both. Tiering is severity-first; kidnapping/false imprisonment are aggravators that require Tier 1 or 2.")
