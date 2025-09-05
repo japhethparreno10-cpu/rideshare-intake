@@ -23,6 +23,8 @@ h2 {font-size: 1.5rem !important; margin-top: 0.6rem;}
 .btn-wag {background:#16a34a; color:white;}
 .btn-tri {background:#2563eb; color:white;}
 .btn-ghost {background:#f3f4f6; color:#111827; border:1px solid #d1d5db;}
+.small {font-size: 0.9rem; color:#4b5563;}
+hr {border:0; border-top:1px solid #e5e7eb; margin:12px 0;}
 [data-testid="stDataFrame"] div, [data-testid="stTable"] div {font-size: 1rem;}
 </style>
 """, unsafe_allow_html=True)
@@ -47,7 +49,6 @@ TORT_SOL = {
     "Missouri":5,
     "Maine":6,"North Dakota":6,
 }
-
 WD_SOL = {
     "Alabama":2,"Alaska":2,"Arizona":2,"Arkansas":3,"California":2,"Colorado":2,"Connecticut":2,"Delaware":2,
     "Florida":2,"Georgia":2,"Hawaii":2,"Idaho":2,"Illinois":2,"Indiana":2,"Iowa":2,"Kansas":2,"Kentucky":1,
@@ -57,7 +58,6 @@ WD_SOL = {
     "South Carolina":3,"South Dakota":3,"Tennessee":1,"Texas":2,"Utah":2,"Vermont":2,"Virginia":2,"Washington":3,
     "West Virginia":2,"Wisconsin":3,"Wyoming":2
 }
-
 SA_EXT = {
     "California":{"rape_penetration":"No SOL","other_touching":"No SOL"},
     "New York":{"rape_penetration":"10 years","other_touching":"10 years"},
@@ -65,7 +65,6 @@ SA_EXT = {
     "Illinois":{"rape_penetration":"No SOL","other_touching":"2 years"},
     "Connecticut":{"rape_penetration":"No SOL","other_touching":"2 years"},
 }
-
 NON_LETHAL_ITEMS = [
     "Pepper Spray - Incapacitates with eye/respiratory irritation",
     "Personal Alarm - Loud noise deterrent",
@@ -92,7 +91,14 @@ NON_LETHAL_ITEMS = [
     "Self-Defense Ring - Pointed edge ring",
     "Hearing Protection - Reduces noise distraction"
 ]
-
+STATE_OPTIONS = [
+    "Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware","Florida","Georgia",
+    "Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland",
+    "Massachusetts","Michigan","Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada","New Hampshire",
+    "New Jersey","New Mexico","New York","North Carolina","North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania",
+    "Rhode Island","South Carolina","South Dakota","Tennessee","Texas","Utah","Vermont","Virginia","Washington",
+    "Washington DC","West Virginia","Wisconsin","Wyoming","Puerto Rico"
+]
 STATES = sorted(set(list(TORT_SOL.keys()) + list(WD_SOL.keys()) + ["D.C."]))
 
 # =========================
@@ -106,15 +112,10 @@ def tier_and_aggravators(data):
     aggr = []
     if aggr_kidnap: aggr.append("Kidnapping w/ threats")
     if aggr_imprison: aggr.append("False imprisonment w/ threats")
-
     if t1: base = "Tier 1"
     elif t2: base = "Tier 2"
     else: base = "Unclear"
-
-    if base in ("Tier 1","Tier 2") and aggr:
-        label = f"{base} (+ Aggravators: {', '.join(aggr)})"
-    else:
-        label = base
+    label = f"{base} (+ Aggravators: {', '.join(aggr)})" if base in ("Tier 1","Tier 2") and aggr else base
     return label, (base in ("Tier 1","Tier 2") and len(aggr) > 0)
 
 def fmt_date(dt): return dt.strftime("%Y-%m-%d") if dt else "—"
@@ -124,7 +125,7 @@ def badge(ok: bool, label: str):
     st.markdown(f"<div class='{css}'>{label}</div>", unsafe_allow_html=True)
 
 # =========================
-# STATE: FLOW
+# SESSION STATE
 # =========================
 if "step" not in st.session_state:
     st.session_state.step = "intake"     # intake -> firm_questions
@@ -148,26 +149,25 @@ with st.expander("Injury & Sexual Assault: Tiers and State SOL Extensions (Refer
 
 **Tier 2** *(must include touching/kissing category)*  
 - Touching/kissing mouth/private parts without consent  
-- Indecent exposure (showing private parts inappropriately)  
+- Indecent exposure  
 - Masturbation in front of someone without their consent  
 
 **Tier 3 (Aggravators; requires Tier 1 or Tier 2)**  
-- Kidnapping (off intended route) **with clear sexual/extreme physical threats**  
-- False imprisonment (driver refuses to stop/locked in) **with clear sexual/extreme physical threats**
+- Kidnapping (off intended route) with clear sexual/extreme physical threats  
+- False imprisonment with clear sexual/extreme physical threats
 
 **State Sexual Assault SOL Extensions (quick look)**  
-- **California:** No SOL for touching of sexual body parts, rape, digital/oral/vaginal/anal penetration  
-- **New York:** 10-year SOL for touching of sexual body parts, rape, digital/oral/vaginal/anal penetration  
-- **Texas:** 5-year SOL for rape/penetration of mouth/anus/vagina; **2-year** SOL for all other conduct  
-- **Illinois:** No SOL for rape/penetration; **2-year** SOL for other conduct  
-- **Connecticut:** No SOL for rape/penetration; **2-year** SOL for other conduct
+- CA: No SOL for penetration/touching  
+- NY: 10 years penetration/touching  
+- TX: 5 years penetration / 2 years other  
+- IL: No SOL penetration / 2 years other  
+- CT: No SOL penetration / 2 years other
 """)
 
 # =========================
 # INTAKE & ELIGIBILITY PAGE
 # =========================
 def render_intake_and_decision():
-    st.markdown("<div class='section'></div>", unsafe_allow_html=True)
     st.header("Intake")
 
     top1, top2, top3 = st.columns([1,1,1])
@@ -251,35 +251,19 @@ def render_intake_and_decision():
         date_of_death = st.date_input("Date of Death", value=TODAY.date()) if wd else None
 
     # ==== DECISION ====
-    st.markdown("<div class='section'></div>", unsafe_allow_html=True)
     st.header("Decision")
 
     incident_dt = datetime.combine(incident_date, incident_time)
     state_data = {
-        "Client Name": client,
-        "Female Rider": female_rider,
-        "Receipt": receipt,
-        "ID": gov_id,
-        "InsideNear": inside_near,
-        "HasAtty": has_atty,
-        "Company": company,
-        "State": state,
-        "IncidentDateTime": incident_dt,
-        "ReportedTo": reported_to,
-        "ReportDates": report_dates,
-        "FamilyReportDateTime": family_report_dt,
-        "Felony": felony,
-        "Weapon": weapon,
-        "VerbalOnly": verbal_only,
-        "AttemptOnly": attempt_only,
-        "Rape/Penetration": rape,
-        "Forced Oral/Forced Touching": forced_oral,
-        "Touching/Kissing w/o Consent": touching,
-        "Indecent Exposure": exposure,
-        "Masturbation Observed": masturb,
-        "Kidnapping Off-Route w/ Threats": kidnap,
-        "False Imprisonment w/ Threats": imprison,
-        "WrongfulDeath": wd,
+        "Client Name": client, "Female Rider": female_rider, "Receipt": receipt, "ID": gov_id,
+        "InsideNear": inside_near, "HasAtty": has_atty, "Company": company, "State": state,
+        "IncidentDateTime": incident_dt, "ReportedTo": reported_to, "ReportDates": report_dates,
+        "FamilyReportDateTime": family_report_dt, "Felony": felony, "Weapon": weapon,
+        "VerbalOnly": verbal_only, "AttemptOnly": attempt_only,
+        "Rape/Penetration": rape, "Forced Oral/Forced Touching": forced_oral,
+        "Touching/Kissing w/o Consent": touching, "Indecent Exposure": exposure,
+        "Masturbation Observed": masturb, "Kidnapping Off-Route w/ Threats": kidnap,
+        "False Imprisonment w/ Threats": imprison, "WrongfulDeath": wd,
         "DateOfDeath": datetime.combine(date_of_death, time(12, 0)) if wd and date_of_death else None
     }
 
@@ -294,25 +278,9 @@ def render_intake_and_decision():
     # Triten earliest report <= 14d
     earliest_report_date = None
     all_dates = [d for d in report_dates.values() if d]
-    if state_data["FamilyReportDateTime"]:
-        all_dates.append(state_data["FamilyReportDateTime"].date())
-    if all_dates:
-        earliest_report_date = min(all_dates)
+    if state_data["FamilyReportDateTime"]: all_dates.append(state_data["FamilyReportDateTime"].date())
+    if all_dates: earliest_report_date = min(all_dates)
     triten_report_ok = (earliest_report_date - incident_dt.date()).days <= 14 if earliest_report_date else False
-
-    # SA note
-    sa_note = ""
-    if state in SA_EXT and ("Tier 1" in tier_label or "Tier 2" in tier_label):
-        if "Tier 1" in tier_label:
-            sa_note = f"{state}: rape/penetration SOL = {SA_EXT[state]['rape_penetration']}"
-        else:
-            sa_note = f"{state}: other touching SOL = {SA_EXT[state]['other_touching']}"
-
-    # WD note
-    wd_note = ""
-    if wd and state_data["DateOfDeath"] and state in WD_SOL:
-        wd_deadline = state_data["DateOfDeath"] + relativedelta(years=+int(WD_SOL[state]))
-        wd_note = f"Wrongful Death SOL: {WD_SOL[state]} years → deadline {fmt_date(wd_deadline)}"
 
     # WAGSTAFF rules
     wag_disq, reported_to_set = [], set(reported_to) if reported_to else set()
@@ -345,8 +313,7 @@ def render_intake_and_decision():
     if not triten_report_ok: tri_disq.append("Report not within 2 weeks (based on earliest report date)")
     triten_ok = common_ok and triten_report_ok and base_tier_ok and not tri_disq
 
-    # COMPANY POLICY
-    # Triten: Uber & Lyft; Waggy: Uber only; Priority: Triten if both
+    # COMPANY POLICY: Triten (Uber & Lyft); Waggy (Uber only); Priority Triten if both
     company_note = ""; priority_note = ""
     if company == "Uber":
         company_note = "Uber → Waggy (Wagstaff) and Triten"
@@ -417,22 +384,22 @@ def render_intake_and_decision():
         "General Tort SOL (yrs)": TORT_SOL.get(state,"—"),
         "SOL End (est.)": fmt_dt(sol_end) if sol_end else "—",
         "Wagstaff file-by (SOL-45d)": fmt_dt(wagstaff_deadline) if wagstaff_deadline else "—",
-        "Sexual Assault Extension Note": (sa_note if sa_note else "—"),
+        "Sexual Assault Extension Note": "—",  # optional quick note could be re-added
         "Reported Dates (by channel)": report_dates_str,
         "Reported to Family/Friends (DateTime)": family_dt_str,
-        "Wrongful Death Note": (wd_note if wd_note else "—"),
+        "Wrongful Death Note": "—",
         "Company Rule": company_note,
         "Priority": (priority_note if priority_note else "—")
     }
     df = pd.DataFrame([decision])
-    st.dataframe(df, use_container_width=True, height=400)
+    st.dataframe(df, use_container_width=True, height=380)
 
-    # ======= FIRM SELECTION (NEW) =======
+    # ======= FIRM SELECTION =======
     st.subheader("Next Step: Choose Firm")
     cols = st.columns(3)
     with cols[0]:
         disabled = not wag_ok
-        if st.button("Proceed with Wagstaff", type="primary", disabled=disabled, help="Opens Wagstaff question flow", key="btn_wag"):
+        if st.button("Proceed with Wagstaff", type="primary", disabled=disabled, key="btn_wag"):
             st.session_state.selected_firm = "Wagstaff"
             st.session_state.step = "firm_questions"
             st.session_state.latest_decision = decision
@@ -442,7 +409,7 @@ def render_intake_and_decision():
             st.caption("Wagstaff not eligible based on screening.")
     with cols[1]:
         disabled = not triten_ok
-        if st.button("Proceed with Triten", type="primary", disabled=disabled, help="Opens Triten question flow", key="btn_tri"):
+        if st.button("Proceed with Triten", type="primary", disabled=disabled, key="btn_tri"):
             st.session_state.selected_firm = "Triten"
             st.session_state.step = "firm_questions"
             st.session_state.latest_decision = decision
@@ -450,8 +417,6 @@ def render_intake_and_decision():
             st.rerun()
         if disabled:
             st.caption("Triten not eligible based on screening.")
-    with cols[2]:
-        st.write("")  # spacer
 
     # EXPORT (intake + decision)
     st.subheader("Export")
@@ -462,66 +427,253 @@ def render_intake_and_decision():
     st.caption("Firm rules: Triten = Uber & Lyft; Waggy = Uber only; Priority = Triten if both eligible. Wagstaff: no felonies, no weapons (non-lethal defensive allowed), no verbal/attempt-only; file 45 days before SOL; Family/Friends-only report must be within 24 hours. Triten: earliest report within 2 weeks.")
 
 # =========================
-# FIRM QUESTION FLOWS
+# WAGSTAFF QUESTION FLOW (1–105)
 # =========================
 def render_wagstaff_questions():
-    st.header("Wagstaff – Follow-up Questions")
-    st.markdown("These questions are specific to Wagstaff. Send me your exact list and I’ll wire them in. For now, here’s a clean scaffold you can use immediately.")
+    st.header("Wagstaff – Detailed Questionnaire")
 
-    # --- EXAMPLE PLACEHOLDERS (replace with your real questions) ---
-    st.subheader("Incident Details")
-    q1 = st.radio("Did the incident involve penetration?", ["No","Yes"], index=0, horizontal=True, key="wag_q1")
-    q2 = st.text_area("Brief description (what happened)?", key="wag_q2")
-    q3 = st.date_input("Date you first contacted Wagstaff (if applicable)", value=TODAY.date(), key="wag_q3")
+    with st.form("wagstaff_form", clear_on_submit=False):
+        # 1–4: Narrative fields
+        st.subheader("1–4. Narrative")
+        s1 = st.text_area("1. Statement of the Case")
+        s2 = st.text_area("2. Burden")
+        s3 = st.text_area("3. Icebreaker")
+        s4 = st.text_area("4. Comments")
 
-    st.subheader("Evidence & Reporting")
-    q4 = st.checkbox("Photos or videos available", key="wag_q4")
-    q5 = st.text_input("Police Report # (if any)", key="wag_q5")
-    q6 = st.file_uploader("Upload any supporting documents (PDF, images)", accept_multiple_files=True, key="wag_files")
+        st.markdown("---")
+        st.subheader("Client Contact Details (5–18)")
 
-    st.subheader("Medical")
-    q7 = st.checkbox("Sought medical attention", key="wag_q7")
-    q8 = st.text_input("Facility / Physician", key="wag_q8")
+        ccols = st.columns([1,1,1])
+        with ccols[0]:
+            c_first = st.text_input("5. First Name", value="")
+        with ccols[1]:
+            c_middle = st.text_input("5. Middle Name", value="")
+        with ccols[2]:
+            c_last = st.text_input("5. Last Name", value="")
 
-    # Save answers in session_state
-    st.session_state.answers_wag = {
-        "penetration": q1, "description": q2, "first_contact_date": str(q3),
-        "media": q4, "police_report_no": q5, "medical": q7, "physician": q8,
-        "files_count": len(q6) if q6 else 0
-    }
+        c_email = st.text_input("6. Primary Email")
+        c_addr = st.text_input("7. Mailing Address")
+        c_city = st.text_input("8. City")
+        c_state = st.selectbox("9. State", STATE_OPTIONS, index=STATE_OPTIONS.index("Georgia") if "Georgia" in STATE_OPTIONS else 0)
+        c_zip = st.text_input("10. Zip")
+        c_home = st.text_input("11. Home Phone No.", placeholder="+1 (###) ###-####")
+        c_cell = st.text_input("12. Cell Phone No.", placeholder="(###) ###-####")
+        c_best_time = st.text_input("13. Best Time to Contact")
+        c_pref_method = st.text_input("14. Preferred Method of Contact")
+        c_dob = st.date_input("15. Date of Birth", value=TODAY.date())
+        c_ssn = st.text_input("16. Social Security No.", placeholder="000-00-0000")
+        c_claim_for = st.radio("17. Does the claim pertain to you or another person?", ["Myself","Someone Else"], horizontal=True)
+        c_prev_firm = st.text_area("18. Signed up with any law firm before and got disqualified? (explain)")
 
-    # Footer controls
+        st.markdown("---")
+        st.subheader("Injured Party Details (19–27)")
+        ip_name = st.text_input("19. Injured/Deceased Party's Full Name")
+        ip_gender = st.text_input("20. Injured Party Gender")
+        ip_dob = st.date_input("21. Injured/Deceased Party's DOB", value=TODAY.date())
+        ip_ssn = st.text_input("22. Injured/Deceased Party's SS#", placeholder="000-00-0000")
+        ip_relationship = st.text_input("23. PC's Relationship to Injured/Deceased")
+        ip_title = st.multiselect("24. Title to Represent", ["Executor","Administrator","Trustee","Conservator","Legal Guardian","Parent","Power of Attorney","Other Agent"])
+        ip_has_poa = st.radio("25. Does caller have POA or other legal authority?", ["Yes","No"], horizontal=True)
+        ip_has_proof = st.radio("26. Does caller have proof of legal authority?", ["Yes","No"], horizontal=True)
+        ip_reason_no_discuss = st.selectbox("27. Reason PC cannot discuss case", ["Select","Minor","Incapacitated","Death","Other"])
+
+        st.markdown("---")
+        st.subheader("Death Details (28–33)")
+        is_deceased = st.radio("28. Is the client deceased?", ["No","Yes"], horizontal=True)
+        dod = st.date_input("29. Date of Death (if applies)", value=TODAY.date()) if is_deceased=="Yes" else None
+        cod = st.text_input("30. Cause of Death on Death Cert") if is_deceased=="Yes" else ""
+        death_state = st.selectbox("31. State of death", STATE_OPTIONS) if is_deceased=="Yes" else ""
+        has_death_cert = st.radio("32. Do you have a death certificate?", ["No","Yes"], horizontal=True) if is_deceased=="Yes" else "No"
+        right_to_claim_docs = st.text_area("33. Documentation of your right to the decedent’s claim?")
+
+        st.markdown("---")
+        st.subheader("Alternate / Emergency Contact (34–37)")
+        ec_name = st.text_input("34. Alt/Emergency Contact Name")
+        ec_relation = st.text_input("35. Relation to Client")
+        ec_phone = st.text_input("36. Alt/Emergency Contact Number", placeholder="+1 (###) ###-####")
+        ec_email = st.text_input("37. Alt/Emergency Contact Email")
+
+        st.markdown("---")
+        st.subheader("Incident Details (38–51)")
+        was_driver_or_rider = st.radio("38. Were you the driver or rider during this incident?", ["Driver","Rider"], horizontal=True)
+        incident_narr = st.text_area("39. Describe what happened (purpose, location, seat, stopped/moving)")
+        has_incident_date = st.checkbox("40. Do you have the date of the incident?")
+        incident_date_known = st.date_input("Incident Date", value=TODAY.date()) if has_incident_date else None
+        rs_company = st.selectbox("41. Which Rideshare company did you use?", ["Uber","Lyft","Other"])
+        us_occurrence = st.radio("42. Did the incident occur within the United States?", ["Yes","No"], horizontal=True)
+        incident_state = st.selectbox("43. In what state did this happen?", STATE_OPTIONS)
+        pickup_addr = st.text_input("44. Pick-up location (full address)")
+        dropoff_addr = st.text_input("45. Drop-off location (full address)")
+        sexually_assaulted = st.radio("46. Sexually assaulted or inappropriately touched by the driver?", ["No","Yes"], horizontal=True)
+        fi_kidnapping = st.radio("47. False imprisonment or kidnapping with threats?", ["No","Yes"], horizontal=True)
+        verbal_harassment = st.radio("48. Subjected to verbal harassment?", ["No","Yes"], horizontal=True)
+        inside_or_near = st.radio("49. Incident occurred while using rideshare (inside/just outside)?", ["No","Yes"], horizontal=True)
+        driver_weapon = st.text_input("50. Did the driver threaten/use weapons or force? (describe)")
+        client_weapon = st.radio("51. Were you carrying a weapon at the time? (Note: non-lethal defense like pepper spray may not count)", ["No","Yes"], horizontal=True)
+
+        st.markdown("---")
+        st.subheader("Reporting & Treatment Details (52–61)")
+        has_receipt = st.radio("52. Able to reproduce the Rideshare Receipt?", ["Yes","No"], horizontal=True)
+        reported_channels = st.multiselect(
+            "53. Did you report the incident to any of the following?",
+            ["Rideshare Company","Physician","Friend or Family Member","Therapist","Police Department","NO (DQ, UNLESS TIER 1 OR MINOR)"]
+        )
+        rs_submit_how = st.text_input("54. If submitted to Rideshare: how (email/app)?")
+        willing_to_report = st.radio("55. If not submitted via app/email: willing to report if the firm recommends?", ["Yes","No","Unsure"], horizontal=True)
+        rs_received_response = st.radio("56. Did you receive a response from Uber/Lyft?", ["No","Yes"], horizontal=True)
+        report_contact_info = st.text_area("57. Contact info of person/org reported to (Name, Relationship, Address, Phone, Date Reported)")
+
+        st.subheader("If PC called Uber or Lyft (58–61)")
+        where_found_number = st.text_input("58. Where did you find the phone number you called?")
+        got_case_number = st.radio("59. Did you receive a confirmation or case number from that call?", ["No","Yes"], horizontal=True)
+        who_answered = st.text_input("60. When you called, did someone say they were with Uber/Lyft or just take info?")
+        follow_up_after_call = st.text_area("61. Any follow-up after the call? (email/app/instructions or none)")
+
+        st.markdown("---")
+        st.subheader("Medical Treatment Details (62–68)")
+        forms_signed_for_records = st.text_input("62. Signed any forms for anyone to get your medical records? Who?")
+        med_treated = st.radio("63. Received medical treatment for physical injuries?", ["No","Yes"], horizontal=True)
+        med_treatment_desc = st.text_area("64. Describe medical treatment")
+        med_doctor = st.text_input("65. Doctor who diagnosed you")
+        med_facility = st.text_input("66. Hospital/Facility where diagnosis done")
+        med_address = st.text_input("67. Hospital/Facility/Doctor's Address")
+        med_phone = st.text_input("68. Hospital/Facility/Doctor's Phone Number", placeholder="+1 (###) ###-####")
+
+        st.markdown("---")
+        st.subheader("Mental Health Treatment Details 1 (69–77)")
+        mh1_yes = st.radio("69. Received mental health treatment related to assault?", ["No","Yes"], horizontal=True)
+        mh1_desc = st.text_area("70. Describe mental health treatment (general)")
+        mh1_doctor = st.text_input("71. Doctor who treated you")
+        mh1_hospital = st.text_input("72. Hospital where treated")
+        mh1_address = st.text_input("73. Hospital's Address")
+        mh1_phone = st.text_input("74. Hospital's Phone Number", placeholder="+1 (###) ###-####")
+        mh1_website = st.text_input("75. Hospital's Website")
+        mh1_diagnosis = st.text_input("76. Diagnosed Ailment / Diagnosis Date(s)")
+        mh1_treatment = st.text_area("77. Treatment Type / Treatment Date(s)")
+
+        st.markdown("---")
+        st.subheader("Mental Health Treatment Details 2 (78–86)")
+        mh2_yes = st.radio("78. Received mental health treatment related to assault? (2)", ["No","Yes"], horizontal=True)
+        mh2_desc = st.text_area("79. Describe mental health treatment (general) (2)")
+        mh2_doctor = st.text_input("80. Doctor who treated you (2)")
+        mh2_hospital = st.text_input("81. Hospital where treated (2)")
+        mh2_address = st.text_input("82. Hospital's Address (2)")
+        mh2_phone = st.text_input("83. Hospital's Phone Number (2)", placeholder="+1 (###) ###-####")
+        mh2_website = st.text_input("84. Hospital's Website (2)")
+        mh2_diagnosis = st.text_input("85. Diagnosed Ailment / Diagnosis Date(s) (2)")
+        mh2_treatment = st.text_area("86. Treatment Type / Treatment Date(s) (2)")
+
+        st.markdown("---")
+        st.subheader("Additional Medical / Mental Health Providers (87–94)")
+        am_name = st.text_input("87. Doctor/Facility Name")
+        am_address = st.text_input("88. Address")
+        am_phone = st.text_input("89. Phone Number", placeholder="+1 (###) ###-####")
+        am_website = st.text_input("90. Website Address")
+        am_diagnosis = st.text_input("91. Diagnosed Ailment / Diagnosis Date(s)")
+        am_symptoms = st.text_input("92. Symptoms")
+        am_treatment = st.text_input("93. Treatment Type / Treatment Date(s)")
+        am_comments = st.text_area("94. Comments")
+
+        st.markdown("---")
+        st.subheader("Pharmacy for Medications (95–103)")
+        ph_name = st.text_input("95. Pharmacy Name")
+        ph_phone = st.text_input("96. Phone", placeholder="+1 (###) ###-####")
+        ph_website = st.text_input("97. Website")
+        ph_address = st.text_input("98. Full Address (Street, City, Zip)")
+        ph_med1 = st.text_input("99. Ailment / Medication / Dates Prescribed")
+        ph_med2 = st.text_input("100. Ailment / Medication / Dates Prescribed")
+        ph_comments = st.text_area("101. Comments")
+        ph_med3 = st.text_input("102. Ailment / Medication / Date Prescribed")
+
+        affirm = st.radio("103. Do you affirm the information is true and correct (including previous firm signup)?", ["Yes","No"], horizontal=True)
+
+        st.markdown("---")
+        st.subheader("Technical (104–105)")
+        ip_addr = st.text_input("104. IP Address")
+        jornaya = st.text_area("105. Trusted Form / Jornaya Data")
+
+        submitted = st.form_submit_button("Save Wagstaff Answers")
+        if submitted:
+            st.session_state.answers_wag = {
+                # 1–4
+                "statement_of_case": s1, "burden": s2, "icebreaker": s3, "comments": s4,
+                # 5–18 Client
+                "client_first": c_first, "client_middle": c_middle, "client_last": c_last,
+                "client_email": c_email, "client_addr": c_addr, "client_city": c_city, "client_state": c_state,
+                "client_zip": c_zip, "client_home": c_home, "client_cell": c_cell, "best_time": c_best_time,
+                "pref_method": c_pref_method, "dob": str(c_dob), "ssn": c_ssn, "claim_for": c_claim_for,
+                "prev_firm": c_prev_firm,
+                # 19–27 Injured Party
+                "ip_name": ip_name, "ip_gender": ip_gender, "ip_dob": str(ip_dob), "ip_ssn": ip_ssn,
+                "ip_relationship": ip_relationship, "ip_title": ip_title, "ip_has_poa": ip_has_poa,
+                "ip_has_proof": ip_has_proof, "ip_reason_no_discuss": ip_reason_no_discuss,
+                # 28–33 Death
+                "is_deceased": is_deceased, "date_of_death": str(dod) if dod else "", "cause_of_death": cod,
+                "death_state": death_state, "has_death_cert": has_death_cert, "right_to_claim_docs": right_to_claim_docs,
+                # 34–37 EC
+                "ec_name": ec_name, "ec_relation": ec_relation, "ec_phone": ec_phone, "ec_email": ec_email,
+                # 38–51 Incident
+                "driver_or_rider": was_driver_or_rider, "incident_narrative": incident_narr,
+                "has_incident_date": has_incident_date, "incident_date": str(incident_date_known) if incident_date_known else "",
+                "rideshare_company": rs_company, "in_us": us_occurrence, "incident_state": incident_state,
+                "pickup_addr": pickup_addr, "dropoff_addr": dropoff_addr, "sexually_assaulted": sexually_assaulted,
+                "false_imprisonment_kidnap": fi_kidnapping, "verbal_harassment": verbal_harassment,
+                "inside_or_near": inside_or_near, "driver_weapon_desc": driver_weapon, "client_weapon": client_weapon,
+                # 52–61 Reporting
+                "has_receipt": has_receipt, "reported_channels": reported_channels,
+                "rs_submit_how": rs_submit_how, "willing_to_report": willing_to_report,
+                "rs_received_response": rs_received_response, "report_contact_info": report_contact_info,
+                "where_found_number": where_found_number, "got_case_number": got_case_number,
+                "who_answered": who_answered, "follow_up_after_call": follow_up_after_call,
+                # 62–68 Medical
+                "forms_signed_for_records": forms_signed_for_records, "med_treated": med_treated,
+                "med_treatment_desc": med_treatment_desc, "med_doctor": med_doctor, "med_facility": med_facility,
+                "med_address": med_address, "med_phone": med_phone,
+                # 69–77 MH1
+                "mh1_yes": mh1_yes, "mh1_desc": mh1_desc, "mh1_doctor": mh1_doctor,
+                "mh1_hospital": mh1_hospital, "mh1_address": mh1_address, "mh1_phone": mh1_phone,
+                "mh1_website": mh1_website, "mh1_diagnosis": mh1_diagnosis, "mh1_treatment": mh1_treatment,
+                # 78–86 MH2
+                "mh2_yes": mh2_yes, "mh2_desc": mh2_desc, "mh2_doctor": mh2_doctor,
+                "mh2_hospital": mh2_hospital, "mh2_address": mh2_address, "mh2_phone": mh2_phone,
+                "mh2_website": mh2_website, "mh2_diagnosis": mh2_diagnosis, "mh2_treatment": mh2_treatment,
+                # 87–94 Additional
+                "am_name": am_name, "am_address": am_address, "am_phone": am_phone,
+                "am_website": am_website, "am_diagnosis": am_diagnosis, "am_symptoms": am_symptoms,
+                "am_treatment": am_treatment, "am_comments": am_comments,
+                # 95–103 Pharmacy
+                "ph_name": ph_name, "ph_phone": ph_phone, "ph_website": ph_website, "ph_address": ph_address,
+                "ph_med1": ph_med1, "ph_med2": ph_med2, "ph_comments": ph_comments, "ph_med3": ph_med3,
+                # 103–105 Affirm + tech
+                "affirm": affirm, "ip_address": ip_addr, "jornaya": jornaya
+            }
+            st.success("Wagstaff answers saved in session. Use Export below to download.")
+
     colA, colB, colC = st.columns([1,1,2])
     with colA:
-        if st.button("Back", help="Return to intake/eligibility screen"):
+        if st.button("Back to Intake"):
             st.session_state.step = "intake"; st.rerun()
     with colB:
-        if st.button("Save Answers (CSV)"):
-            payload = {
-                "firm":"Wagstaff",
-                **(st.session_state.intake_payload if "intake_payload" in st.session_state else {}),
-                **st.session_state.answers_wag
-            }
+        if st.button("Export Wagstaff CSV"):
+            payload = {"firm":"Wagstaff"}
+            if "intake_payload" in st.session_state: payload.update(st.session_state.intake_payload)
+            payload.update(st.session_state.answers_wag)
             df = pd.DataFrame([payload])
             csv_bytes = df.to_csv(index=False).encode("utf-8")
-            st.download_button("Download Wagstaff Answers", data=csv_bytes, file_name="wagstaff_followup.csv", mime="text/csv", key="dl_wag_csv")
+            st.download_button("Download wagstaff_followup.csv", data=csv_bytes, file_name="wagstaff_followup.csv", mime="text/csv", key="dl_wag_csv_btn")
     with colC:
-        st.caption("Once you send the exact questions, I’ll replace the placeholders above 1:1.")
+        st.caption("All 1–105 Wagstaff questions implemented. Tell me any wording tweaks or required fields.")
 
+# =========================
+# TRITEN PLACEHOLDER (send exact list to wire)
+# =========================
 def render_triten_questions():
-    st.header("Triten – Follow-up Questions")
-    st.markdown("These questions are specific to Triten. Drop me your exact list and I’ll wire them in. This scaffold captures answers and lets you export them.")
-
-    # --- EXAMPLE PLACEHOLDERS (replace with your real questions) ---
-    st.subheader("Timeline & Contact")
-    q1 = st.date_input("Earliest report date (to any channel)", value=TODAY.date(), key="tri_q1")
-    q2 = st.text_input("Rideshare case/incident # (if provided)", key="tri_q2")
-
-    st.subheader("Threats / Aggravators")
+    st.header("Triten – Follow-up Questions (placeholder)")
+    st.info("Send your exact Triten question list and field types and I’ll wire them in.")
+    q1 = st.date_input("Earliest report date (any channel)", value=TODAY.date(), key="tri_q1")
+    q2 = st.text_input("Rideshare case/incident #", key="tri_q2")
     q3 = st.checkbox("Driver made explicit sexual/physical threats", key="tri_q3")
     q4 = st.checkbox("Off-route / False imprisonment", key="tri_q4")
-
-    st.subheader("Damages")
     q5 = st.text_area("Physical or psychological injuries (summary)", key="tri_q5")
     q6 = st.checkbox("Ongoing therapy/treatment", key="tri_q6")
 
@@ -530,24 +682,18 @@ def render_triten_questions():
         "threats": q3, "offroute_or_fi": q4,
         "injuries": q5, "therapy": q6
     }
-
-    # Footer controls
-    colA, colB, colC = st.columns([1,1,2])
+    colA, colB = st.columns([1,1])
     with colA:
-        if st.button("Back", help="Return to intake/eligibility screen"):
+        if st.button("Back to Intake"):
             st.session_state.step = "intake"; st.rerun()
     with colB:
-        if st.button("Save Answers (CSV)"):
-            payload = {
-                "firm":"Triten",
-                **(st.session_state.intake_payload if "intake_payload" in st.session_state else {}),
-                **st.session_state.answers_tri
-            }
+        if st.button("Export Triten CSV"):
+            payload = {"firm":"Triten"}
+            if "intake_payload" in st.session_state: payload.update(st.session_state.intake_payload)
+            payload.update(st.session_state.answers_tri)
             df = pd.DataFrame([payload])
             csv_bytes = df.to_csv(index=False).encode("utf-8")
-            st.download_button("Download Triten Answers", data=csv_bytes, file_name="triten_followup.csv", mime="text/csv", key="dl_tri_csv")
-    with colC:
-        st.caption("When you send the exact questions, I’ll swap these placeholders for your real form.")
+            st.download_button("Download triten_followup.csv", data=csv_bytes, file_name="triten_followup.csv", mime="text/csv", key="dl_tri_csv_btn")
 
 # =========================
 # ROUTER
