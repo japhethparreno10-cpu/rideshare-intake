@@ -21,9 +21,10 @@ h2 {font-size: 1.5rem !important; margin-top: 0.6rem;}
 </style>
 """, unsafe_allow_html=True)
 
-# ---------- CONSTANTS ----------
-TODAY = datetime(2025, 9, 4)  # adjust as needed
+# ---------- "TODAY" (auto-updates every run) ----------
+TODAY = datetime.now()
 
+# ---------- CONSTANTS ----------
 # General tort SOL by state (years)
 TORT_SOL = {
     "Kentucky":1,"Louisiana":1,"Tennessee":1,
@@ -180,7 +181,7 @@ with row2[4]:
     has_atty = st.toggle("Already has an attorney", value=False)
 with row2[5]:
     incident_time = st.time_input("Incident Time", value=time(21, 0))  # default 9:00 PM
-incident_date = st.date_input("Incident Date", value=datetime(2025,8,1))
+incident_date = st.date_input("Incident Date", value=TODAY.date())
 
 # Reported To selection
 reported_to = st.multiselect(
@@ -200,23 +201,23 @@ reported_to = st.multiselect(
 # For each selected channel, capture its own date (and time for Family/Friends)
 report_dates = {}
 if "Rideshare company" in reported_to:
-    report_dates["Rideshare company"] = st.date_input("Date reported to Rideshare company", value=incident_date)
+    report_dates["Rideshare company"] = st.date_input("Date reported to Rideshare company", value=TODAY.date())
 if "Police" in reported_to:
-    report_dates["Police"] = st.date_input("Date reported to Police", value=incident_date)
+    report_dates["Police"] = st.date_input("Date reported to Police", value=TODAY.date())
 if "Therapist" in reported_to:
-    report_dates["Therapist"] = st.date_input("Date reported to Therapist", value=incident_date)
+    report_dates["Therapist"] = st.date_input("Date reported to Therapist", value=TODAY.date())
 if "Medical professional" in reported_to:
-    report_dates["Medical professional"] = st.date_input("Date reported to Medical professional", value=incident_date)
+    report_dates["Medical professional"] = st.date_input("Date reported to Medical professional", value=TODAY.date())
 if "Physician" in reported_to:
-    report_dates["Physician"] = st.date_input("Date reported to Physician", value=incident_date)
+    report_dates["Physician"] = st.date_input("Date reported to Physician", value=TODAY.date())
 if "Audio/Video evidence" in reported_to:
-    report_dates["Audio/Video evidence"] = st.date_input("Date of Audio/Video evidence", value=incident_date)
+    report_dates["Audio/Video evidence"] = st.date_input("Date of Audio/Video evidence", value=TODAY.date())
 
 # Family/Friends needs date + time (24h rule for Wagstaff if it’s the ONLY report)
 family_report_dt = None
 if "Family/Friends" in reported_to:
     fr_c1, fr_c2 = st.columns([1,1])
-    family_report_date = fr_c1.date_input("Date reported to Family/Friends", value=incident_date)
+    family_report_date = fr_c1.date_input("Date reported to Family/Friends", value=TODAY.date())
     family_report_time = fr_c2.time_input("Time reported to Family/Friends", value=incident_time)
     family_report_dt = datetime.combine(family_report_date, family_report_time)
 
@@ -249,7 +250,7 @@ wd_col1, wd_col2 = st.columns([1,2])
 with wd_col1:
     wd = st.toggle("Wrongful Death?", value=False)
 with wd_col2:
-    date_of_death = st.date_input("Date of Death", value=datetime(2025,8,10)) if wd else None
+    date_of_death = st.date_input("Date of Death", value=TODAY.date()) if wd else None
 
 # ========== DECISION ==========
 st.markdown("<div class='section'></div>", unsafe_allow_html=True)
@@ -388,7 +389,7 @@ if not triten_report_ok:
 
 triten_ok = common_ok and triten_report_ok and base_tier_ok and len(tri_disq) == 0
 
-# ---------- COMPANY RULES (your policy) ----------
+# ---------- COMPANY RULES (policy) ----------
 # Triten: Uber and Lyft
 # Waggy:  Uber only
 # Priority: Triten if both
