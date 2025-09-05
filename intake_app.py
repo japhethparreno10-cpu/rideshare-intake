@@ -6,7 +6,7 @@ from dateutil.relativedelta import relativedelta
 # ---------- PAGE SETUP ----------
 st.set_page_config(page_title="Rideshare Intake Qualifier", layout="wide")
 
-# Bigger typography / spacing
+# Bigger typography / spacing and clear badges
 st.markdown("""
 <style>
 h1 {font-size: 2.0rem !important;}
@@ -16,13 +16,12 @@ h3 {font-size: 1.25rem !important;}
 .badge-ok   {background:#16a34a; color:white; padding:12px 16px; border-radius:12px; font-size:22px; text-align:center;}
 .badge-no   {background:#dc2626; color:white; padding:12px 16px; border-radius:12px; font-size:22px; text-align:center;}
 .badge-note {background:#1f2937; color:#f9fafb; padding:8px 12px; border-radius:10px; font-size:14px; display:inline-block;}
-/* widen data table fonts */
 [data-testid="stDataFrame"] div, [data-testid="stTable"] div {font-size: 1rem;}
 </style>
 """, unsafe_allow_html=True)
 
 # ---------- CONSTANTS ----------
-TODAY = datetime(2025, 9, 4)
+TODAY = datetime(2025, 9, 4)  # current context date
 
 TORT_SOL = {
     "Kentucky":1,"Louisiana":1,"Tennessee":1,
@@ -55,6 +54,33 @@ SA_EXT = {
     "Connecticut":{"rape_penetration":"No SOL","other_touching":"2 years"},
 }
 
+NON_LETHAL_ITEMS = [
+    "Pepper Spray - Incapacitates with eye/respiratory irritation",
+    "Personal Alarm - Loud noise deterrent",
+    "Stun Gun - Electric shock to incapacitate",
+    "Taser - Electric darts from a distance",
+    "Self-Defense Keychain - Pointed/hard edges",
+    "Tactical Flashlight - Disorienting light, striking tool",
+    "Groin Kickers - Aid for strikes to sensitive areas",
+    "Personal Safety Apps - Emergency alerts/notify authorities",
+    "Defense Flares - Signal/deter",
+    "Baton - Collapsible, non-lethal strikes",
+    "Kubotan - Pressure point tool",
+    "Umbrella - Defensive striking tool / create distance",
+    "Whistle - Loud alert",
+    "Combat Pen - Writing tool & striker",
+    "Pocket Knife - Tool that may be used defensively",
+    "Personal Baton - Lightweight baton",
+    "Nunchaku - Martial arts implement",
+    "Flashbang - Loud + bright disorienter",
+    "Air Horn - Loud deterrent",
+    "Bear Spray - Potent spray defense",
+    "Sticky Foam - Temporary immobilization",
+    "Tactical Scarf/Shawl - Blocking/striking",
+    "Self-Defense Ring - Pointed edge ring",
+    "Hearing Protection - Reduces noise distraction"
+]
+
 STATES = sorted(set(list(TORT_SOL.keys()) + list(WD_SOL.keys()) + ["D.C."]))
 
 # ---------- HELPERS ----------
@@ -80,11 +106,10 @@ def badge(ok: bool, label: str):
 # ---------- UI ----------
 st.title("Rideshare Intake Qualifier")
 
-# ========== INTAKE (TOP, FULL-WIDTH) ==========
+# INTAKE (TOP, FULL-WIDTH)
 st.markdown("<div class='section'></div>", unsafe_allow_html=True)
 st.header("Intake")
 
-# core requirements
 top1, top2, top3 = st.columns([1,1,1])
 with top1:
     client = st.text_input("Client Name", placeholder="e.g., Jane Doe")
@@ -115,7 +140,6 @@ with dates3:
                                  ["Rideshare company","Police","Therapist","Medical professional","Family/Friends","Audio/Video evidence"],
                                  default=["Police"])
 
-# dis/qualifiers (kept near core toggles)
 dq1, dq2, dq3 = st.columns([1,1,1])
 with dq1:
     weapon = st.selectbox("Weapon involved?", ["No","Non-lethal defensive (e.g., pepper spray)","Yes"])
@@ -135,8 +159,7 @@ with c2:
     masturb = st.checkbox("Masturbation Observed")
     kidnap = st.checkbox("Kidnapping Off-Route w/ Threats")
     imprison = st.checkbox("False Imprisonment w/ Threats")
-    # MOVED HERE: under Acts section
-    felony = st.toggle("Client has felony record", value=False)
+    felony = st.toggle("Client has felony record", value=False)  # moved under Acts
 
 st.subheader("Wrongful Death")
 wd_col1, wd_col2 = st.columns([1,2])
@@ -145,11 +168,11 @@ with wd_col1:
 with wd_col2:
     date_of_death = st.date_input("Date of Death", value=datetime(2025,8,10)) if wd else None
 
-# ========== DECISION (BOTTOM, FULL-WIDTH, BIG) ==========
+# DECISION (BOTTOM, FULL-WIDTH)
 st.markdown("<div class='section'></div>", unsafe_allow_html=True)
 st.header("Decision")
 
-# pack intake
+# Pack intake
 data = {
     "Client Name": client,
     "Female Rider": female_rider,
@@ -179,7 +202,7 @@ data = {
 
 tier = derive_tier(data)
 
-# common reqs
+# Common requirements
 common_ok = all([
     data["Female Rider"],
     data["Receipt"],
@@ -188,49 +211,76 @@ common_ok = all([
     not data["HasAtty"]
 ])
 
-# SOL calculations
+# SOL math
 sol_years = TORT_SOL.get(state)
 sol_end = add_years(data["IncidentDate"], sol_years) if sol_years else None
 wagstaff_deadline = (sol_end - timedelta(days=45)) if sol_end else None
 wagstaff_time_ok = (TODAY <= wagstaff_deadline) if wagstaff_deadline else True
 
-# Triten: report within 2 weeks
+# Triten reporting window
 triten_report_ok = (data["ReportedDate"] - data["IncidentDate"]).days <= 14
 
 # SA note
 sa_note = ""
 if state in SA_EXT and tier in ("Tier 1","Tier 2"):
     sa_note = (f"{state}: rape/penetration SOL = {SA_EXT[state]['rape_penetration']}"
-               if tier=="Tier 1" else
-               f"{state}: other touching SOL = {SA_EXT[state]['other_touching']}")
+               if tier=="Tier 1"
+               else f"{state}: other touching SOL = {SA_EXT[state]['other_touching']}")
 
-# WD note
+# Wrongful death note
 wd_note = ""
 if data["WrongfulDeath"] and data["DateOfDeath"] and state in WD_SOL:
     wd_deadline = add_years(data["DateOfDeath"], WD_SOL[state])
     wd_note = f"Wrongful Death SOL: {WD_SOL[state]} years → deadline {fmt_date(wd_deadline)}"
 
-# firm screens
+# ---------- WAGSTAFF RULES (explicit reasons) ----------
 wag_disq = []
-if data["Felony"]: wag_disq.append("Felony record")
-if data["Weapon"] == "Yes": wag_disq.append("Weapon involved")
-if data["VerbalOnly"]: wag_disq.append("Verbal only")
-if data["AttemptOnly"]: wag_disq.append("Attempt/minor contact")
-if data["HasAtty"]: wag_disq.append("Already has attorney")
-wag_ok = common_ok and wagstaff_time_ok and (tier in ("Tier 1","Tier 2","Tier 3")) and len(wag_disq) == 0
+if data["Felony"]:
+    wag_disq.append("Felony record → Wagstaff requires no felony history")
+if data["Weapon"] == "Yes":
+    wag_disq.append("Weapon involved → disqualified under Wagstaff")
+if data["VerbalOnly"]:
+    wag_disq.append("Verbal abuse only → does not qualify")
+if data["AttemptOnly"]:
+    wag_disq.append("Attempt/minor contact only → does not qualify")
+if data["HasAtty"]:
+    wag_disq.append("Already has attorney → cannot intake")
 
+# Family/Friends-only same-day rule
+reported_to_set = set(data["ReportedTo"]) if data["ReportedTo"] else set()
+same_day_family_ok = True
+if reported_to_set and reported_to_set == {"Family/Friends"}:
+    same_day_family_ok = (data["ReportedDate"].date() == data["IncidentDate"].date())
+    if not same_day_family_ok:
+        wag_disq.append("Reported only to Family/Friends, but not on same day → fails Wagstaff reporting rule")
+
+wag_ok = (
+    common_ok and wagstaff_time_ok and same_day_family_ok
+    and (tier in ("Tier 1","Tier 2","Tier 3"))
+    and len(wag_disq) == 0
+)
+
+# ---------- TRITEN RULES (explicit reasons) ----------
 tri_disq = []
-if data["VerbalOnly"]: tri_disq.append("Verbal only")
-if data["AttemptOnly"]: tri_disq.append("Attempt/minor contact")
-if data["HasAtty"]: tri_disq.append("Already has attorney")
+if data["VerbalOnly"]:
+    tri_disq.append("Verbal abuse only → does not qualify")
+if data["AttemptOnly"]:
+    tri_disq.append("Attempt/minor contact only → does not qualify")
+if data["HasAtty"]:
+    tri_disq.append("Already has attorney → cannot intake")
+if not triten_report_ok:
+    tri_disq.append("Report not within 2 weeks → Triten requirement")
+
 triten_ok = common_ok and triten_report_ok and (tier in ("Tier 1","Tier 2","Tier 3")) and len(tri_disq) == 0
 
 # Company rule: Uber → Wagstaff only; Lyft → both
 company_note = "Uber → Wagstaff only" if company=="Uber" else "Lyft → Wagstaff or Triten"
 if company=="Uber":
     triten_ok = False
+    if "Company rule: Uber → Wagstaff only." not in tri_disq:
+        tri_disq.append("Company rule: Uber → Wagstaff only.")
 
-# badges row (big, no scrolling)
+# Badges row (big)
 b1, b2, b3 = st.columns([1,1,1])
 with b1:
     st.markdown(f"<div class='badge-note'>Tier</div>", unsafe_allow_html=True)
@@ -242,43 +292,29 @@ with b3:
     st.markdown(f"<div class='badge-note'>Triten</div>", unsafe_allow_html=True)
     badge(triten_ok, "Eligible" if triten_ok else "Not Eligible")
 
-# wide summary table
+# Decision table (wide)
 decision = {
     "Rideshare Company Rule": company_note,
     "General Tort SOL (yrs)": sol_years,
     "SOL End (est.)": fmt_date(sol_end),
     "Wagstaff file-by (SOL-45d)": fmt_date(wagstaff_deadline),
     "Sexual Assault Extension Note": sa_note if sa_note else "—",
-    "Wagstaff Reasons/Notes": (
-        "Meets screen."
-        if wag_ok else
-        "; ".join(filter(None, [
-            "Missing common reqs (female rider, receipt, ID, inside/near car, no attorney)." if not common_ok else "",
-            "Past Wagstaff filing window (needs 45 days before SOL)." if not wagstaff_time_ok else "",
-            ("Disqualifications: " + ", ".join(wag_disq)) if wag_disq else "",
-            "Tier unclear; add details." if tier == "Unclear" else ""
-        ]))
-    ),
-    "Triten Reasons/Notes": (
-        "Meets screen."
-        if triten_ok else
-        "; ".join(filter(None, [
-            "Missing common reqs (female rider, receipt, ID, inside/near car, no attorney)." if not common_ok else "",
-            "Report not within 2 weeks." if not triten_report_ok else "",
-            ("Disqualifications: " + ", ".join(tri_disq)) if tri_disq else "",
-            "Tier unclear; add details." if tier == "Unclear" else "",
-            "Company rule: Uber → Wagstaff only." if company == "Uber" else ""
-        ]))
-    ),
+    "Wagstaff Reasons/Notes": "Meets screen." if wag_ok else "; ".join(wag_disq) if wag_disq else "Not eligible (unspecified).",
+    "Triten Reasons/Notes": "Meets screen." if triten_ok else "; ".join(tri_disq) if tri_disq else "Not eligible (unspecified).",
     "Wrongful Death Note": wd_note if wd_note else "—"
 }
-df = pd.DataFrame([decision])
-st.dataframe(df, use_container_width=True, height=300)
 
-# export
+# If non-lethal defensive item selected, add explanatory note with list
+if data["Weapon"] == "Non-lethal defensive (e.g., pepper spray)":
+    decision["Weapon Note"] = "Allowed (non-lethal defensive item). Examples: " + "; ".join(NON_LETHAL_ITEMS)
+
+df = pd.DataFrame([decision])
+st.dataframe(df, use_container_width=True, height=340)
+
+# Export block
 st.subheader("Export")
 export_df = pd.concat([pd.DataFrame([data]), df], axis=1)
 csv_bytes = export_df.to_csv(index=False).encode("utf-8")
 st.download_button("Download CSV (intake + decision)", data=csv_bytes, file_name="intake_decision.csv", mime="text/csv")
 
-st.caption("Rules: Wagstaff (strict: no felonies, no weapons, no attempts/verbal; file 45 days before SOL) vs Triten (felonies OK, weapons OK if reported; report within 2 weeks). Company rule: Uber → Wagstaff only; Lyft → both. Layout is vertical for clearer presentation.")
+st.caption("Wagstaff: no felonies, no weapons (non-lethal defensive allowed), no verbal/attempt-only; must file 45 days before SOL; Family/Friends-only reports must be same day. Triten: felonies OK, weapons OK, report must be within 2 weeks. Uber → Wagstaff only; Lyft → both.")
