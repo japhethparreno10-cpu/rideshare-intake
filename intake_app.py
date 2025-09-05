@@ -14,12 +14,15 @@ h2 {font-size: 1.5rem !important; margin-top: 0.6rem;}
 .badge-ok   {background:#16a34a; color:white; padding:12px 16px; border-radius:12px; font-size:22px; text-align:center;}
 .badge-no   {background:#dc2626; color:white; padding:12px 16px; border-radius:12px; font-size:22px; text-align:center;}
 .badge-note {background:#1f2937; color:#f9fafb; padding:8px 12px; border-radius:10px; font-size:14px; display:inline-block;}
+.note-wag {border:1px solid #c7f0d2; border-left:8px solid #16a34a; border-radius:8px; padding:10px 12px; margin:8px 0; background:#f0fdf4; color:#064e3b;}
+.note-tri {border:1px solid #cfe8ff; border-left:8px solid #2563eb; border-radius:8px; padding:10px 12px; margin:8px 0; background:#eff6ff; color:#1e3a8a;}
+.note-muted {border:1px dashed #d1d5db; border-radius:8px; padding:10px 12px; margin:8px 0; background:#f9fafb; color:#374151;}
 [data-testid="stDataFrame"] div, [data-testid="stTable"] div {font-size: 1rem;}
 </style>
 """, unsafe_allow_html=True)
 
 # ---------- CONSTANTS ----------
-TODAY = datetime(2025, 9, 4)  # adjust when needed
+TODAY = datetime(2025, 9, 4)  # adjust as needed
 
 # General tort SOL by state (years)
 TORT_SOL = {
@@ -385,16 +388,16 @@ if not triten_report_ok:
 
 triten_ok = common_ok and triten_report_ok and base_tier_ok and len(tri_disq) == 0
 
-# ---------- COMPANY RULES (your update) ----------
+# ---------- COMPANY RULES (your policy) ----------
 # Triten: Uber and Lyft
-# Waggy: Uber only
+# Waggy:  Uber only
 # Priority: Triten if both
 company_note = ""
 priority_note = ""
 
 if company == "Uber":
     company_note = "Uber → Waggy (Wagstaff) and Triten"
-    # both firms allowed; no disabling here
+    # both allowed; show priority if both eligible
     if wag_ok and triten_ok:
         priority_note = "Priority: Triten (both eligible)."
 elif company == "Lyft":
@@ -416,64 +419,65 @@ with b3:
     st.markdown(f"<div class='badge-note'>Triten</div>", unsafe_allow_html=True)
     badge(triten_ok, "Eligible" if triten_ok else "Not Eligible")
 
-if priority_note:
-    st.info(priority_note)
+if company_note: st.info(company_note)
+if priority_note: st.info(priority_note)
 
-# Loud warning if 24h family-only rule is the reason
-if reported_to_set == {"Family/Friends"}:
-    if missing_family_dt:
-        st.error("WAGSTAFF DISQUALIFIED: Family/Friends was the only report but the date/time wasn’t provided.")
-    elif not within_24h_family_ok:
-        st.error("WAGSTAFF DISQUALIFIED: Family/Friends was the only report and it was more than 24 hours after the incident.")
+# ---------- NOTES: INDIVIDUAL ORIENTATION ----------
+st.subheader("Eligibility Notes")
 
-# ---------- DECISION TABLE ----------
-def reasons_text(ok, disq_list, common_ok, time_ok, within24_ok, base_tier_ok, firm):
-    if ok:
-        return "Meets screen."
+# Wagstaff Notes (green)
+st.markdown("### Wagstaff")
+if wag_ok:
+    st.markdown(f"<div class='note-wag'>Meets screen.</div>", unsafe_allow_html=True)
+else:
     reasons = []
-    if not common_ok:
-        reasons.append("Missing common requirements (must be female rider, have receipt & ID, incident inside/near car, and no current attorney).")
-    if firm == "Wagstaff" and not time_ok:
-        reasons.append("Past Wagstaff filing window (must file 45 days before SOL).")
-    if firm == "Wagstaff" and reported_to_set == {"Family/Friends"}:
-        if not within24_ok:
-            if missing_family_dt:
-                reasons.append("Family/Friends-only selected but date/time was not provided.")
-            else:
-                reasons.append("Family/Friends-only report not within 24 hours of incident.")
-    if not base_tier_ok:
-        reasons.append("Tier unclear (select Tier 1 or Tier 2 qualifying acts).")
-    if disq_list:
-        reasons.extend(disq_list)
-    return " ; ".join(reasons)
+    if wag_disq: reasons.extend(wag_disq)
+    if not wagstaff_time_ok: reasons.append("Past Wagstaff filing window (must file 45 days before SOL).")
+    if reported_to_set == {"Family/Friends"}:
+        if missing_family_dt:
+            reasons.append("Family/Friends-only selected but date/time was not provided.")
+        elif not within_24h_family_ok:
+            reasons.append("Family/Friends-only report not within 24 hours of incident.")
+    if not base_tier_ok: reasons.append("Tier unclear (select Tier 1 or Tier 2 qualifying acts).")
+    if reasons:
+        for r in reasons:
+            st.markdown(f"<div class='note-wag'>{r}</div>", unsafe_allow_html=True)
+    else:
+        st.markdown(f"<div class='note-muted'>No specific reason captured.</div>", unsafe_allow_html=True)
 
-wag_reasons = reasons_text(wag_ok, wag_disq, common_ok, wagstaff_time_ok, within_24h_family_ok, base_tier_ok, "Wagstaff")
-tri_reasons = reasons_text(triten_ok, tri_disq, common_ok, True, True, base_tier_ok, "Triten")
+# Triten Notes (blue)
+st.markdown("### Triten")
+if triten_ok:
+    st.markdown(f"<div class='note-tri'>Meets screen.</div>", unsafe_allow_html=True)
+else:
+    reasons = []
+    if tri_disq: reasons.extend(tri_disq)
+    if not base_tier_ok: reasons.append("Tier unclear (select Tier 1 or Tier 2 qualifying acts).")
+    if reasons:
+        for r in reasons:
+            st.markdown(f"<div class='note-tri'>{r}</div>", unsafe_allow_html=True)
+    else:
+        st.markdown(f"<div class='note-muted'>No specific reason captured.</div>", unsafe_allow_html=True)
 
-# Collect report dates (for the record)
-report_dates_str = "; ".join([f"{k}: {fmt_date(v)}" for k, v in data["ReportDates"].items()]) if data["ReportDates"] else "—"
-family_dt_str = fmt_dt(data["FamilyReportDateTime"]) if data["FamilyReportDateTime"] else "—"
+# ---------- SUMMARY TABLE ----------
+st.subheader("Summary")
+report_dates_str = "; ".join([f"{k}: {fmt_date(v)}" for k, v in report_dates.items()]) if report_dates else "—"
+family_dt_str = fmt_dt(family_report_dt) if family_report_dt else "—"
 
 decision = {
-    "Rideshare Company Rule": company_note,
     "Tier (severity-first)": tier_label,
-    "General Tort SOL (yrs)": sol_years if sol_years is not None else "—",
+    "General Tort SOL (yrs)": TORT_SOL.get(state,"—"),
     "SOL End (est.)": fmt_dt(sol_end) if sol_end else "—",
     "Wagstaff file-by (SOL-45d)": fmt_dt(wagstaff_deadline) if wagstaff_deadline else "—",
-    "Sexual Assault Extension Note": sa_note if sa_note else "—",
+    "Sexual Assault Extension Note": (sa_note if sa_note else "—"),
     "Reported Dates (by channel)": report_dates_str,
     "Reported to Family/Friends (DateTime)": family_dt_str,
-    "Wagstaff Reasons/Notes": wag_reasons if wag_reasons else "—",
-    "Triten Reasons/Notes": tri_reasons if tri_reasons else "—",
-    "Wrongful Death Note": wd_note if wd_note else "—",
-    "Priority": priority_note if priority_note else "—"
+    "Wrongful Death Note": (wd_note if wd_note else "—"),
+    "Company Rule": company_note,
+    "Priority": (priority_note if priority_note else "—")
 }
-
-if data["Weapon"] == "Non-lethal defensive (e.g., pepper spray)":
-    decision["Weapon Note"] = "Allowed (non-lethal defensive item). Examples: " + "; ".join(NON_LETHAL_ITEMS)
-
 df = pd.DataFrame([decision])
-st.dataframe(df, use_container_width=True, height=480)
+st.dataframe(df, use_container_width=True, height=420)
 
 # ---------- EXPORT ----------
 st.subheader("Export")
@@ -481,4 +485,4 @@ export_df = pd.concat([pd.DataFrame([data]), df], axis=1)
 csv_bytes = export_df.to_csv(index=False).encode("utf-8")
 st.download_button("Download CSV (intake + decision)", data=csv_bytes, file_name="intake_decision.csv", mime="text/csv")
 
-st.caption("Firm rules: Triten = Uber & Lyft; Waggy = Uber only; Priority = Triten if both eligible. Wagstaff: no felonies, no weapons (non-lethal defensive allowed), no verbal/attempt-only; file 45 days before SOL; if Family/Friends is the ONLY report, it must be within 24 hours. Triten: earliest report within 2 weeks. Tiering is severity-first; kidnapping/false imprisonment are aggravators that require Tier 1 or 2.")
+st.caption("Firm rules: Triten = Uber & Lyft; Waggy = Uber only; Priority = Triten if both eligible. Wagstaff: no felonies, no weapons (non-lethal defensive allowed), no verbal/attempt-only; file 45 days before SOL; Family/Friends-only report must be within 24 hours. Triten: earliest report within 2 weeks. Tiering is severity-first; kidnapping/false imprisonment are aggravators requiring Tier 1 or 2.")
