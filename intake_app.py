@@ -21,7 +21,7 @@ h3 {font-size: 1.25rem !important;}
 """, unsafe_allow_html=True)
 
 # ---------- CONSTANTS ----------
-TODAY = datetime(2025, 9, 4)  # update when needed
+TODAY = datetime(2025, 9, 4)  # adjust when needed
 
 # General tort SOL by state (years)
 TORT_SOL = {
@@ -119,14 +119,8 @@ def tier_and_aggravators(data):
     valid_aggravators = (base in ("Tier 1","Tier 2")) and len(aggr) > 0
     return label, valid_aggravators
 
-def add_years(date_obj, years):
-    return date_obj + relativedelta(years=+int(years))
-
-def fmt_date(dt):
-    return dt.strftime("%Y-%m-%d") if dt else "—"
-
-def fmt_dt(dt):
-    return dt.strftime("%Y-%m-%d %H:%M") if dt else "—"
+def fmt_date(dt): return dt.strftime("%Y-%m-%d") if dt else "—"
+def fmt_dt(dt): return dt.strftime("%Y-%m-%d %H:%M") if dt else "—"
 
 def badge(ok: bool, label: str):
     css = "badge-ok" if ok else "badge-no"
@@ -135,7 +129,7 @@ def badge(ok: bool, label: str):
 # ---------- UI ----------
 st.title("Rideshare Intake Qualifier")
 
-# Helpful references
+# Single reference expander (kept)
 with st.expander("Injury & Sexual Assault: Tiers and State SOL Extensions (Reference)"):
     st.markdown("""
 **Tier 1**  
@@ -160,25 +154,7 @@ with st.expander("Injury & Sexual Assault: Tiers and State SOL Extensions (Refer
 - **Connecticut:** No SOL for rape/penetration; **2-year** SOL for other conduct
 """)
 
-with st.expander("Elements of Statement of the Case (for RIDESHARE)"):
-    st.markdown("""
-1. Date of ride  
-2. Name of PC  
-3. “reserved a ride with [name of Rideshare company]”  
-4. General description of pick-up and drop-off (e.g., home → work)  
-5. Purpose of ride (only if not self-evident)  
-6. Brief/categorical description (assaulted, unwanted touching, groped, kidnapped, etc.)  
-7. Person or entity PC reported incident to  
-""")
-
-with st.expander("Contacts"):
-    st.markdown("""
-**Triten Law** — 1015 15th Street NW, Washington, DC 20005 — **202-519-6715**  
-**Wagstaff Legal Assistants:** Lorenia 213-347-9246 • Kim 213-770-1340 • Nate 623-254-7182  
-*(Triten booking link: not yet available)*
-""")
-
-# ========== INTAKE (TOP, FULL-WIDTH) ==========
+# ========== INTAKE ==========
 st.markdown("<div class='section'></div>", unsafe_allow_html=True)
 st.header("Intake")
 
@@ -213,7 +189,7 @@ reported_to = st.multiselect(
         "Police",
         "Therapist",
         "Medical professional",
-        "Physician",              # NEW
+        "Physician",              # included
         "Family/Friends",
         "Audio/Video evidence"
     ],
@@ -230,7 +206,7 @@ if "Therapist" in reported_to:
     report_dates["Therapist"] = st.date_input("Date reported to Therapist", value=incident_date)
 if "Medical professional" in reported_to:
     report_dates["Medical professional"] = st.date_input("Date reported to Medical professional", value=incident_date)
-if "Physician" in reported_to:  # NEW
+if "Physician" in reported_to:
     report_dates["Physician"] = st.date_input("Date reported to Physician", value=incident_date)
 if "Audio/Video evidence" in reported_to:
     report_dates["Audio/Video evidence"] = st.date_input("Date of Audio/Video evidence", value=incident_date)
@@ -274,7 +250,7 @@ with wd_col1:
 with wd_col2:
     date_of_death = st.date_input("Date of Death", value=datetime(2025,8,10)) if wd else None
 
-# ========== DECISION (BOTTOM, FULL-WIDTH, BIG) ==========
+# ========== DECISION ==========
 st.markdown("<div class='section'></div>", unsafe_allow_html=True)
 st.header("Decision")
 
@@ -327,8 +303,7 @@ sol_end = data["IncidentDateTime"] + relativedelta(years=+int(sol_years)) if sol
 wagstaff_deadline = (sol_end - timedelta(days=45)) if sol_end else None
 wagstaff_time_ok = (TODAY <= wagstaff_deadline) if wagstaff_deadline else True
 
-# Triten reporting window:
-# Use the earliest provided report date from any selected channel (including Family/Friends date part)
+# Triten reporting window (earliest date among all channels incl. Family/Friends date part)
 earliest_report_date = None
 all_dates = []
 
@@ -345,15 +320,15 @@ triten_report_ok = True
 if earliest_report_date:
     triten_report_ok = (earliest_report_date - data["IncidentDateTime"].date()).days <= 14
 else:
-    triten_report_ok = False  # nothing reported at all → fails Triten reporting requirement
+    triten_report_ok = False  # nothing reported → fails Triten reporting requirement
 
 # SA note
 sa_note = ""
 if state in SA_EXT and ("Tier 1" in tier_label or "Tier 2" in tier_label):
     if "Tier 1" in tier_label:
-        sa_note = f"{state}: rape/penetration SOL = {SA_EXT[state]['rape_penetration']}" if state in SA_EXT else ""
+        sa_note = f"{state}: rape/penetration SOL = {SA_EXT[state]['rape_penetration']}"
     else:
-        sa_note = f"{state}: other touching SOL = {SA_EXT[state]['other_touching']}" if state in SA_EXT else ""
+        sa_note = f"{state}: other touching SOL = {SA_EXT[state]['other_touching']}"
 
 # Wrongful death note
 wd_note = ""
@@ -374,7 +349,7 @@ if data["AttemptOnly"]:
 if data["HasAtty"]:
     wag_disq.append("Already has attorney → cannot intake")
 
-# Family/Friends-only rule: must be within 24 hours
+# Family/Friends-only rule: must be within 24 hours of incident
 reported_to_set = set(data["ReportedTo"]) if data["ReportedTo"] else set()
 within_24h_family_ok = True
 missing_family_dt = False
@@ -468,7 +443,7 @@ family_dt_str = fmt_dt(data["FamilyReportDateTime"]) if data["FamilyReportDateTi
 decision = {
     "Rideshare Company Rule": company_note,
     "Tier (severity-first)": tier_label,
-    "General Tort SOL (yrs)": sol_years,
+    "General Tort SOL (yrs)": tort_years if (tort_years := TORT_SOL.get(state)) else "—",
     "SOL End (est.)": fmt_dt(sol_end) if sol_end else "—",
     "Wagstaff file-by (SOL-45d)": fmt_dt(wagstaff_deadline) if wagstaff_deadline else "—",
     "Sexual Assault Extension Note": sa_note if sa_note else "—",
