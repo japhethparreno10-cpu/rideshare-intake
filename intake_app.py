@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from dateutil.relativedelta import relativedelta
 
 # ---------- PAGE SETUP ----------
@@ -21,7 +21,7 @@ h3 {font-size: 1.25rem !important;}
 """, unsafe_allow_html=True)
 
 # ---------- CONSTANTS ----------
-TODAY = datetime(2025, 9, 4)  # current context date
+TODAY = datetime(2025, 9, 4)  # update when needed
 
 # General tort SOL by state (years)
 TORT_SOL = {
@@ -90,13 +90,11 @@ STATES = sorted(set(list(TORT_SOL.keys()) + list(WD_SOL.keys()) + ["D.C."]))
 # ---------- HELPERS ----------
 def tier_and_aggravators(data):
     """
-    Implements severity-first tiering exactly as specified:
-    - Tier 1 has priority: rape/sodomy; forced oral; forced touching.
-    - Tier 2 next: touching/kissing mouth/private parts; indecent exposure; masturbation.
-    - Tier 3 is NOT a standalone tier. It is an aggravator that requires Tier 1 or Tier 2:
-        - Kidnapping (off-route) w/ clear sexual or extreme physical threats
-        - False imprisonment w/ clear sexual or extreme physical threats
-    Returns (tier_label, aggravators_list).
+    Severity-first tiering:
+    - Tier 1 (priority): rape/sodomy; forced oral; forced touching.
+    - Tier 2: touching/kissing mouth/private parts; indecent exposure; masturbation.
+    - Tier 3 is an aggravator (kidnapping/false imprisonment with threats) that REQUIRES Tier 1 or 2.
+    Returns (tier_label, aggravators_present_bool).
     """
     t1 = bool(data["Rape/Penetration"] or data["Forced Oral/Forced Touching"])
     t2 = bool(data["Touching/Kissing w/o Consent"] or data["Indecent Exposure"] or data["Masturbation Observed"])
@@ -106,23 +104,18 @@ def tier_and_aggravators(data):
     if aggr_kidnap: aggr.append("Kidnapping w/ threats")
     if aggr_imprison: aggr.append("False imprisonment w/ threats")
 
-    # Severity-first: pick Tier 1 if present, else Tier 2, else Unclear.
     if t1:
         base = "Tier 1"
     elif t2:
         base = "Tier 2"
     else:
-        # If only kidnapping/imprisonment are checked without any Tier 1/2 act,
-        # this does NOT constitute Tier 3 per the rule "must have Tier 1 or 2".
         base = "Unclear"
 
-    # Label with aggravators if (and only if) base is Tier 1 or Tier 2 and aggravators were checked
     if base in ("Tier 1","Tier 2") and aggr:
         label = f"{base} (+ Aggravators: {', '.join(aggr)})"
     else:
         label = base
 
-    # Also return a machine-friendly bool to say if aggravators are present while valid (T1/T2)
     valid_aggravators = (base in ("Tier 1","Tier 2")) and len(aggr) > 0
     return label, valid_aggravators
 
@@ -131,6 +124,9 @@ def add_years(date_obj, years):
 
 def fmt_date(dt):
     return dt.strftime("%Y-%m-%d") if dt else "—"
+
+def fmt_dt(dt):
+    return dt.strftime("%Y-%m-%d %H:%M") if dt else "—"
 
 def badge(ok: bool, label: str):
     css = "badge-ok" if ok else "badge-no"
@@ -194,7 +190,7 @@ with top2:
 with top3:
     state = st.selectbox("Incident State", STATES, index=STATES.index("California") if "California" in STATES else 0)
 
-row2 = st.columns(5)
+row2 = st.columns(6)
 with row2[0]:
     female_rider = st.toggle("Female rider", value=True)
 with row2[1]:
@@ -205,16 +201,30 @@ with row2[3]:
     inside_near = st.toggle("Incident inside/just outside/started near car", value=True)
 with row2[4]:
     has_atty = st.toggle("Already has an attorney", value=False)
+with row2[5]:
+    incident_time = st.time_input("Incident Time", value=time(21, 0))  # default 9:00 PM
 
 dates1, dates2, dates3 = st.columns([1,1,2])
 with dates1:
     incident_date = st.date_input("Incident Date", value=datetime(2025,8,1))
 with dates2:
-    reported_date = st.date_input("Reported Date", value=datetime(2025,8,5))
+    reported_date = st.date_input("Reported Date (officials/records)", value=datetime(2025,8,5))
 with dates3:
-    reported_to = st.multiselect("Reported To (choose all that apply)",
-                                 ["Rideshare company","Police","Therapist","Medical professional","Family/Friends","Audio/Video evidence"],
-                                 default=["Police"])
+    reported_to = st.multiselect(
+        "Reported To (choose all that apply)",
+        ["Rideshare company","Police","Therapist","Medical professional","Family/Friends","Audio/Video evidence"],
+        default=["Police"]
+    )
+
+# If "Family/Friends" selected, ask for specific date & time for 24h rule
+family_report_date = None
+family_report_time = None
+if "Family/Friends" in reported_to:
+    fr_c1, fr_c2 = st.columns([1,1])
+    with fr_c1:
+        family_report_date = st.date_input("Date reported to Family/Friends", value=incident_date)
+    with fr_c2:
+        family_report_time = st.time_input("Time reported to Family/Friends", value=incident_time)
 
 dq1, dq2, dq3 = st.columns([1,1,1])
 with dq1:
@@ -249,6 +259,13 @@ st.markdown("<div class='section'></div>", unsafe_allow_html=True)
 st.header("Decision")
 
 # Pack intake
+incident_dt = datetime.combine(incident_date, incident_time)
+official_report_dt = datetime.combine(reported_date, time(12, 0))  # noon default; informational only
+
+family_report_dt = None
+if family_report_date and family_report_time:
+    family_report_dt = datetime.combine(family_report_date, family_report_time)
+
 data = {
     "Client Name": client,
     "Female Rider": female_rider,
@@ -258,9 +275,10 @@ data = {
     "HasAtty": has_atty,
     "Company": company,
     "State": state,
-    "IncidentDate": datetime.combine(incident_date, datetime.min.time()),
-    "ReportedDate": datetime.combine(reported_date, datetime.min.time()),
+    "IncidentDateTime": incident_dt,
+    "OfficialReportDate": reported_date,  # keep date
     "ReportedTo": reported_to,
+    "FamilyReportDateTime": family_report_dt,
     "Felony": felony,
     "Weapon": weapon,
     "VerbalOnly": verbal_only,
@@ -273,7 +291,7 @@ data = {
     "Kidnapping Off-Route w/ Threats": kidnap,
     "False Imprisonment w/ Threats": imprison,
     "WrongfulDeath": wd,
-    "DateOfDeath": datetime.combine(date_of_death, datetime.min.time()) if wd and date_of_death else None
+    "DateOfDeath": datetime.combine(date_of_death, time(12, 0)) if wd and date_of_death else None
 }
 
 # Tier with severity-first + aggravators requirement
@@ -290,12 +308,12 @@ common_ok = all([
 
 # SOL math
 sol_years = TORT_SOL.get(state)
-sol_end = add_years(data["IncidentDate"], sol_years) if sol_years else None
+sol_end = data["IncidentDateTime"] + relativedelta(years=+int(sol_years)) if sol_years else None
 wagstaff_deadline = (sol_end - timedelta(days=45)) if sol_end else None
 wagstaff_time_ok = (TODAY <= wagstaff_deadline) if wagstaff_deadline else True
 
-# Triten reporting window
-triten_report_ok = (data["ReportedDate"] - data["IncidentDate"]).days <= 14
+# Triten reporting window (2 weeks, using date granularity)
+triten_report_ok = (data["OfficialReportDate"] - data["IncidentDateTime"].date()).days <= 14
 
 # SA note
 sa_note = ""
@@ -308,7 +326,7 @@ if state in SA_EXT and ("Tier 1" in tier_label or "Tier 2" in tier_label):
 # Wrongful death note
 wd_note = ""
 if data["WrongfulDeath"] and data["DateOfDeath"] and state in WD_SOL:
-    wd_deadline = add_years(data["DateOfDeath"], WD_SOL[state])
+    wd_deadline = data["DateOfDeath"] + relativedelta(years=+int(WD_SOL[state]))
     wd_note = f"Wrongful Death SOL: {WD_SOL[state]} years → deadline {fmt_date(wd_deadline)}"
 
 # ---------- WAGSTAFF RULES (explicit reasons) ----------
@@ -324,18 +342,26 @@ if data["AttemptOnly"]:
 if data["HasAtty"]:
     wag_disq.append("Already has attorney → cannot intake")
 
-# Family/Friends-only same-day rule
+# Family/Friends-only rule: must be within 24 hours
 reported_to_set = set(data["ReportedTo"]) if data["ReportedTo"] else set()
-same_day_family_ok = True
-if reported_to_set and reported_to_set == {"Family/Friends"}:
-    same_day_family_ok = (data["ReportedDate"].date() == data["IncidentDate"].date())
-    if not same_day_family_ok:
-        wag_disq.append("Reported only to Family/Friends, but not on same day → fails Wagstaff reporting rule")
+within_24h_family_ok = True
+missing_family_dt = False
 
-# Wagstaff eligibility
-base_tier_ok = ("Tier 1" in tier_label) or ("Tier 2" in tier_label)  # Unclear does not pass
+if reported_to_set == {"Family/Friends"}:
+    if data["FamilyReportDateTime"] is None:
+        within_24h_family_ok = False
+        missing_family_dt = True
+        wag_disq.append("Family/Friends-only selected but date/time was not provided")
+    else:
+        delta = data["FamilyReportDateTime"] - data["IncidentDateTime"]
+        within_24h_family_ok = (timedelta(0) <= delta <= timedelta(hours=24))
+        if not within_24h_family_ok:
+            wag_disq.append("Family/Friends-only report exceeded 24 hours after incident → fails Wagstaff rule")
+
+# Wagstaff eligibility (Tier must be 1 or 2; 'Unclear' fails)
+base_tier_ok = ("Tier 1" in tier_label) or ("Tier 2" in tier_label)
 wag_ok = (
-    common_ok and wagstaff_time_ok and same_day_family_ok and base_tier_ok and len(wag_disq) == 0
+    common_ok and wagstaff_time_ok and within_24h_family_ok and base_tier_ok and len(wag_disq) == 0
 )
 
 # ---------- TRITEN RULES (explicit reasons) ----------
@@ -370,9 +396,15 @@ with b3:
     st.markdown(f"<div class='badge-note'>Triten</div>", unsafe_allow_html=True)
     badge(triten_ok, "Eligible" if triten_ok else "Not Eligible")
 
+# Loud warning if 24h family-only rule is the reason
+if reported_to_set == {"Family/Friends"}:
+    if missing_family_dt:
+        st.error("WAGSTAFF DISQUALIFIED: Family/Friends was the only report but the date/time wasn’t provided.")
+    elif not within_24h_family_ok:
+        st.error("WAGSTAFF DISQUALIFIED: Family/Friends was the only report and it was more than 24 hours after the incident.")
+
 # Decision table (wide)
-# Build explicit reasons text (bulleted-like string)
-def reasons_text(ok, disq_list, common_ok, time_ok, same_day_ok, base_tier_ok, firm):
+def reasons_text(ok, disq_list, common_ok, time_ok, within24_ok, base_tier_ok, firm):
     if ok:
         return "Meets screen."
     reasons = []
@@ -380,23 +412,27 @@ def reasons_text(ok, disq_list, common_ok, time_ok, same_day_ok, base_tier_ok, f
         reasons.append("Missing common requirements (must be female rider, have receipt & ID, incident inside/near car, and no current attorney).")
     if firm == "Wagstaff" and not time_ok:
         reasons.append("Past Wagstaff filing window (must file 45 days before SOL).")
-    if firm == "Wagstaff" and not same_day_ok and reported_to_set == {"Family/Friends"}:
-        reasons.append("Reported only to Family/Friends, but not on same day.")
+    if firm == "Wagstaff" and reported_to_set == {"Family/Friends"}:
+        if not within24_ok:
+            if missing_family_dt:
+                reasons.append("Family/Friends-only selected but date/time was not provided.")
+            else:
+                reasons.append("Family/Friends-only report not within 24 hours of incident.")
     if not base_tier_ok:
         reasons.append("Tier unclear (select Tier 1 or Tier 2 qualifying acts).")
     if disq_list:
         reasons.extend(disq_list)
     return " ; ".join(reasons)
 
-wag_reasons = reasons_text(wag_ok, wag_disq, common_ok, wagstaff_time_ok, same_day_family_ok, base_tier_ok, "Wagstaff")
+wag_reasons = reasons_text(wag_ok, wag_disq, common_ok, wagstaff_time_ok, within_24h_family_ok, base_tier_ok, "Wagstaff")
 tri_reasons = reasons_text(triten_ok, tri_disq, common_ok, True, True, base_tier_ok, "Triten")
 
 decision = {
     "Rideshare Company Rule": company_note,
     "Tier (severity-first)": tier_label,
     "General Tort SOL (yrs)": sol_years,
-    "SOL End (est.)": fmt_date(sol_end),
-    "Wagstaff file-by (SOL-45d)": fmt_date(wagstaff_deadline),
+    "SOL End (est.)": fmt_dt(sol_end) if sol_end else "—",
+    "Wagstaff file-by (SOL-45d)": fmt_dt(wagstaff_deadline) if wagstaff_deadline else "—",
     "Sexual Assault Extension Note": sa_note if sa_note else "—",
     "Wagstaff Reasons/Notes": wag_reasons if wag_reasons else "—",
     "Triten Reasons/Notes": tri_reasons if tri_reasons else "—",
@@ -407,8 +443,12 @@ decision = {
 if data["Weapon"] == "Non-lethal defensive (e.g., pepper spray)":
     decision["Weapon Note"] = "Allowed (non-lethal defensive item). Examples: " + "; ".join(NON_LETHAL_ITEMS)
 
+# Also show the specific Family/Friends report datetime captured
+if data["FamilyReportDateTime"]:
+    decision["Reported to Family/Friends (DateTime)"] = fmt_dt(data["FamilyReportDateTime"])
+
 df = pd.DataFrame([decision])
-st.dataframe(df, use_container_width=True, height=380)
+st.dataframe(df, use_container_width=True, height=420)
 
 # Export block
 st.subheader("Export")
@@ -416,4 +456,4 @@ export_df = pd.concat([pd.DataFrame([data]), df], axis=1)
 csv_bytes = export_df.to_csv(index=False).encode("utf-8")
 st.download_button("Download CSV (intake + decision)", data=csv_bytes, file_name="intake_decision.csv", mime="text/csv")
 
-st.caption("Wagstaff: no felonies, no weapons (non-lethal defensive allowed), no verbal/attempt-only; file 45 days before SOL; Family/Friends-only reports must be same day. Triten: felonies OK, weapons OK, report within 2 weeks. Uber → Wagstaff only; Lyft → both. Tiering is severity-first; kidnapping/false imprisonment are aggravators that require Tier 1 or 2.")
+st.caption("Wagstaff: no felonies, no weapons (non-lethal defensive allowed), no verbal/attempt-only; file 45 days before SOL; if Family/Friends is the ONLY report, it must be within 24 hours (date & time captured). Triten: felonies OK, weapons OK, report within 2 weeks. Uber → Wagstaff only; Lyft → both. Tiering is severity-first; kidnapping/false imprisonment are aggravators that require Tier 1 or 2.")
