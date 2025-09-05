@@ -203,29 +203,37 @@ with row2[4]:
     has_atty = st.toggle("Already has an attorney", value=False)
 with row2[5]:
     incident_time = st.time_input("Incident Time", value=time(21, 0))  # default 9:00 PM
+incident_date = st.date_input("Incident Date", value=datetime(2025,8,1))
 
-dates1, dates2, dates3 = st.columns([1,1,2])
-with dates1:
-    incident_date = st.date_input("Incident Date", value=datetime(2025,8,1))
-with dates2:
-    reported_date = st.date_input("Reported Date (officials/records)", value=datetime(2025,8,5))
-with dates3:
-    reported_to = st.multiselect(
-        "Reported To (choose all that apply)",
-        ["Rideshare company","Police","Therapist","Medical professional","Family/Friends","Audio/Video evidence"],
-        default=["Police"]
-    )
+# Reported To selection
+reported_to = st.multiselect(
+    "Reported To (choose all that apply)",
+    ["Rideshare company","Police","Therapist","Medical professional","Family/Friends","Audio/Video evidence"],
+    default=["Police"]
+)
 
-# If "Family/Friends" selected, ask for specific date & time for 24h rule
-family_report_date = None
-family_report_time = None
+# For each selected channel, capture its own date (and time for Family/Friends)
+report_dates = {}
+if "Rideshare company" in reported_to:
+    report_dates["Rideshare company"] = st.date_input("Date reported to Rideshare company", value=incident_date)
+if "Police" in reported_to:
+    report_dates["Police"] = st.date_input("Date reported to Police", value=incident_date)
+if "Therapist" in reported_to:
+    report_dates["Therapist"] = st.date_input("Date reported to Therapist", value=incident_date)
+if "Medical professional" in reported_to:
+    report_dates["Medical professional"] = st.date_input("Date reported to Medical professional", value=incident_date)
+if "Audio/Video evidence" in reported_to:
+    report_dates["Audio/Video evidence"] = st.date_input("Date of Audio/Video evidence", value=incident_date)
+
+# Family/Friends needs date + time (24h rule for Wagstaff if it’s the ONLY report)
+family_report_dt = None
 if "Family/Friends" in reported_to:
     fr_c1, fr_c2 = st.columns([1,1])
-    with fr_c1:
-        family_report_date = st.date_input("Date reported to Family/Friends", value=incident_date)
-    with fr_c2:
-        family_report_time = st.time_input("Time reported to Family/Friends", value=incident_time)
+    family_report_date = fr_c1.date_input("Date reported to Family/Friends", value=incident_date)
+    family_report_time = fr_c2.time_input("Time reported to Family/Friends", value=incident_time)
+    family_report_dt = datetime.combine(family_report_date, family_report_time)
 
+# Disqualifier toggles
 dq1, dq2, dq3 = st.columns([1,1,1])
 with dq1:
     weapon = st.selectbox("Weapon involved?", ["No","Non-lethal defensive (e.g., pepper spray)","Yes"])
@@ -234,6 +242,7 @@ with dq2:
 with dq3:
     attempt_only = st.toggle("Attempt/minor contact only", value=False)
 
+# Acts
 st.subheader("Acts (check what applies)")
 c1, c2 = st.columns(2)
 with c1:
@@ -245,8 +254,9 @@ with c2:
     masturb = st.checkbox("Masturbation Observed")
     kidnap = st.checkbox("Kidnapping Off-Route w/ Threats")
     imprison = st.checkbox("False Imprisonment w/ Threats")
-    felony = st.toggle("Client has felony record", value=False)  # moved under Acts
+    felony = st.toggle("Client has felony record", value=False)
 
+# Wrongful Death
 st.subheader("Wrongful Death")
 wd_col1, wd_col2 = st.columns([1,2])
 with wd_col1:
@@ -260,11 +270,6 @@ st.header("Decision")
 
 # Pack intake
 incident_dt = datetime.combine(incident_date, incident_time)
-official_report_dt = datetime.combine(reported_date, time(12, 0))  # noon default; informational only
-
-family_report_dt = None
-if family_report_date and family_report_time:
-    family_report_dt = datetime.combine(family_report_date, family_report_time)
 
 data = {
     "Client Name": client,
@@ -276,9 +281,9 @@ data = {
     "Company": company,
     "State": state,
     "IncidentDateTime": incident_dt,
-    "OfficialReportDate": reported_date,  # keep date
     "ReportedTo": reported_to,
-    "FamilyReportDateTime": family_report_dt,
+    "ReportDates": report_dates,                     # dict: channel -> date
+    "FamilyReportDateTime": family_report_dt,        # datetime (only if Family/Friends picked)
     "Felony": felony,
     "Weapon": weapon,
     "VerbalOnly": verbal_only,
@@ -312,8 +317,29 @@ sol_end = data["IncidentDateTime"] + relativedelta(years=+int(sol_years)) if sol
 wagstaff_deadline = (sol_end - timedelta(days=45)) if sol_end else None
 wagstaff_time_ok = (TODAY <= wagstaff_deadline) if wagstaff_deadline else True
 
-# Triten reporting window (2 weeks, using date granularity)
-triten_report_ok = (data["OfficialReportDate"] - data["IncidentDateTime"].date()).days <= 14
+# Triten reporting window:
+# Use the earliest provided report date from any selected channel (including Family/Friends date part)
+earliest_report_date = None
+all_dates = []
+
+# Dates from channel-specific date inputs
+for ch, d in data["ReportDates"].items():
+    if d: all_dates.append(d)
+
+# Family/Friends date (take date part from datetime if provided)
+if data["FamilyReportDateTime"]:
+    all_dates.append(data["FamilyReportDateTime"].date())
+
+if all_dates:
+    earliest_report_date = min(all_dates)
+
+# Triten requires report within 14 days
+triten_report_ok = True
+if earliest_report_date:
+    triten_report_ok = (earliest_report_date - data["IncidentDateTime"].date()).days <= 14
+else:
+    # If nothing was reported at all, Triten fails the reporting requirement
+    triten_report_ok = False
 
 # SA note
 sa_note = ""
@@ -372,8 +398,10 @@ if data["AttemptOnly"]:
     tri_disq.append("Attempt/minor contact only → does not qualify")
 if data["HasAtty"]:
     tri_disq.append("Already has attorney → cannot intake")
+if earliest_report_date is None:
+    tri_disq.append("No report date provided for any channel")
 if not triten_report_ok:
-    tri_disq.append("Report not within 2 weeks → Triten requirement")
+    tri_disq.append("Report not within 2 weeks (based on earliest report date)")
 
 triten_ok = common_ok and triten_report_ok and base_tier_ok and len(tri_disq) == 0
 
@@ -427,6 +455,10 @@ def reasons_text(ok, disq_list, common_ok, time_ok, within24_ok, base_tier_ok, f
 wag_reasons = reasons_text(wag_ok, wag_disq, common_ok, wagstaff_time_ok, within_24h_family_ok, base_tier_ok, "Wagstaff")
 tri_reasons = reasons_text(triten_ok, tri_disq, common_ok, True, True, base_tier_ok, "Triten")
 
+# Collect report dates (for the record) into the decision table
+report_dates_str = "; ".join([f"{k}: {fmt_date(v)}" for k, v in data["ReportDates"].items()]) if data["ReportDates"] else "—"
+family_dt_str = fmt_dt(data["FamilyReportDateTime"]) if data["FamilyReportDateTime"] else "—"
+
 decision = {
     "Rideshare Company Rule": company_note,
     "Tier (severity-first)": tier_label,
@@ -434,6 +466,8 @@ decision = {
     "SOL End (est.)": fmt_dt(sol_end) if sol_end else "—",
     "Wagstaff file-by (SOL-45d)": fmt_dt(wagstaff_deadline) if wagstaff_deadline else "—",
     "Sexual Assault Extension Note": sa_note if sa_note else "—",
+    "Reported Dates (by channel)": report_dates_str,
+    "Reported to Family/Friends (DateTime)": family_dt_str,
     "Wagstaff Reasons/Notes": wag_reasons if wag_reasons else "—",
     "Triten Reasons/Notes": tri_reasons if tri_reasons else "—",
     "Wrongful Death Note": wd_note if wd_note else "—"
@@ -443,12 +477,8 @@ decision = {
 if data["Weapon"] == "Non-lethal defensive (e.g., pepper spray)":
     decision["Weapon Note"] = "Allowed (non-lethal defensive item). Examples: " + "; ".join(NON_LETHAL_ITEMS)
 
-# Also show the specific Family/Friends report datetime captured
-if data["FamilyReportDateTime"]:
-    decision["Reported to Family/Friends (DateTime)"] = fmt_dt(data["FamilyReportDateTime"])
-
 df = pd.DataFrame([decision])
-st.dataframe(df, use_container_width=True, height=420)
+st.dataframe(df, use_container_width=True, height=460)
 
 # Export block
 st.subheader("Export")
@@ -456,4 +486,4 @@ export_df = pd.concat([pd.DataFrame([data]), df], axis=1)
 csv_bytes = export_df.to_csv(index=False).encode("utf-8")
 st.download_button("Download CSV (intake + decision)", data=csv_bytes, file_name="intake_decision.csv", mime="text/csv")
 
-st.caption("Wagstaff: no felonies, no weapons (non-lethal defensive allowed), no verbal/attempt-only; file 45 days before SOL; if Family/Friends is the ONLY report, it must be within 24 hours (date & time captured). Triten: felonies OK, weapons OK, report within 2 weeks. Uber → Wagstaff only; Lyft → both. Tiering is severity-first; kidnapping/false imprisonment are aggravators that require Tier 1 or 2.")
+st.caption("Wagstaff: no felonies, no weapons (non-lethal defensive allowed), no verbal/attempt-only; file 45 days before SOL; if Family/Friends is the ONLY report, it must be within 24 hours (date & time captured). Triten: report must be within 2 weeks (earliest of all report dates). Uber → Wagstaff only; Lyft → both. Tiering is severity-first; kidnapping/false imprisonment are aggravators that require Tier 1 or 2.")
