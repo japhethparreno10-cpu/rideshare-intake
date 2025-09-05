@@ -19,19 +19,13 @@ h2 {font-size: 1.5rem !important; margin-top: 0.6rem;}
 .note-wag {border:1px solid #c7f0d2; border-left:8px solid #16a34a; border-radius:8px; padding:10px 12px; margin:8px 0; background:#f0fdf4; color:#064e3b;}
 .note-tri {border:1px solid #cfe8ff; border-left:8px solid #2563eb; border-radius:8px; padding:10px 12px; margin:8px 0; background:#eff6ff; color:#1e3a8a;}
 .note-muted {border:1px dashed #d1d5db; border-radius:8px; padding:10px 12px; margin:8px 0; background:#f9fafb; color:#374151;}
-.big-btn {display:inline-block; padding:14px 18px; margin:6px 8px 0 0; font-size:18px; border-radius:10px; border:none; cursor:pointer;}
-.btn-wag {background:#16a34a; color:white;}
-.btn-tri {background:#2563eb; color:white;}
-.btn-ghost {background:#f3f4f6; color:#111827; border:1px solid #d1d5db;}
+.script {border-left:4px solid #9ca3af; background:#f3f4f6; color:#111827; padding:10px 12px; border-radius:6px; margin:6px 0 14px 0; font-size:0.95rem;}
 .small {font-size: 0.9rem; color:#4b5563;}
 hr {border:0; border-top:1px solid #e5e7eb; margin:12px 0;}
 [data-testid="stDataFrame"] div, [data-testid="stTable"] div {font-size: 1rem;}
 </style>
 """, unsafe_allow_html=True)
 
-# =========================
-# TODAY (auto-updates)
-# =========================
 TODAY = datetime.now()
 
 # =========================
@@ -65,32 +59,6 @@ SA_EXT = {
     "Illinois":{"rape_penetration":"No SOL","other_touching":"2 years"},
     "Connecticut":{"rape_penetration":"No SOL","other_touching":"2 years"},
 }
-NON_LETHAL_ITEMS = [
-    "Pepper Spray - Incapacitates with eye/respiratory irritation",
-    "Personal Alarm - Loud noise deterrent",
-    "Stun Gun - Electric shock to incapacitate",
-    "Taser - Electric darts from a distance",
-    "Self-Defense Keychain - Pointed/hard edges",
-    "Tactical Flashlight - Disorienting light, striking tool",
-    "Groin Kickers - Aid for strikes to sensitive areas",
-    "Personal Safety Apps - Emergency alerts/notify authorities",
-    "Defense Flares - Signal/deter",
-    "Baton - Collapsible, non-lethal strikes",
-    "Kubotan - Pressure point tool",
-    "Umbrella - Defensive striking tool / create distance",
-    "Whistle - Loud alert",
-    "Combat Pen - Writing tool & striker",
-    "Pocket Knife - Tool that may be used defensively",
-    "Personal Baton - Lightweight baton",
-    "Nunchaku - Martial arts implement",
-    "Flashbang - Loud + bright disorienter",
-    "Air Horn - Loud deterrent",
-    "Bear Spray - Potent spray defense",
-    "Sticky Foam - Temporary immobilization",
-    "Tactical Scarf/Shawl - Blocking/striking",
-    "Self-Defense Ring - Pointed edge ring",
-    "Hearing Protection - Reduces noise distraction"
-]
 STATE_OPTIONS = [
     "Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware","Florida","Georgia",
     "Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland",
@@ -123,6 +91,11 @@ def fmt_dt(dt): return dt.strftime("%Y-%m-%d %H:%M") if dt else "—"
 def badge(ok: bool, label: str):
     css = "badge-ok" if ok else "badge-no"
     st.markdown(f"<div class='{css}'>{label}</div>", unsafe_allow_html=True)
+
+def script_block(text: str):
+    """Show a visible coaching/script block under a field."""
+    if not text: return
+    st.markdown(f"<div class='script'>{text}</div>", unsafe_allow_html=True)
 
 # =========================
 # SESSION STATE
@@ -384,10 +357,8 @@ def render_intake_and_decision():
         "General Tort SOL (yrs)": TORT_SOL.get(state,"—"),
         "SOL End (est.)": fmt_dt(sol_end) if sol_end else "—",
         "Wagstaff file-by (SOL-45d)": fmt_dt(wagstaff_deadline) if wagstaff_deadline else "—",
-        "Sexual Assault Extension Note": "—",  # optional quick note could be re-added
         "Reported Dates (by channel)": report_dates_str,
         "Reported to Family/Friends (DateTime)": family_dt_str,
-        "Wrongful Death Note": "—",
         "Company Rule": company_note,
         "Priority": (priority_note if priority_note else "—")
     }
@@ -418,151 +389,270 @@ def render_intake_and_decision():
         if disabled:
             st.caption("Triten not eligible based on screening.")
 
-    # EXPORT (intake + decision)
     st.subheader("Export")
     export_df = pd.concat([pd.DataFrame([state_data]), df], axis=1)
     csv_bytes = export_df.to_csv(index=False).encode("utf-8")
     st.download_button("Download CSV (intake + decision)", data=csv_bytes, file_name="intake_decision.csv", mime="text/csv")
 
-    st.caption("Firm rules: Triten = Uber & Lyft; Waggy = Uber only; Priority = Triten if both eligible. Wagstaff: no felonies, no weapons (non-lethal defensive allowed), no verbal/attempt-only; file 45 days before SOL; Family/Friends-only report must be within 24 hours. Triten: earliest report within 2 weeks.")
+    st.caption("Firm rules: Triten = Uber & Lyft; Waggy = Uber only; Priority = Triten if both eligible. Wagstaff: Family/Friends-only report must be within 24h; file 45 days before SOL; no felonies, no weapons (non-lethal defensive OK). Triten: earliest report within 2 weeks.")
 
 # =========================
-# WAGSTAFF QUESTION FLOW (1–105)
+# WAGSTAFF QUESTION FLOW WITH NUMBERS & VISIBLE SCRIPTS
 # =========================
 def render_wagstaff_questions():
     st.header("Wagstaff – Detailed Questionnaire")
 
     with st.form("wagstaff_form", clear_on_submit=False):
-        # 1–4: Narrative fields
+        # 1–4 Narrative
         st.subheader("1–4. Narrative")
         s1 = st.text_area("1. Statement of the Case")
+        script_block("Agent Response: Encourage a concise, chronological statement. Reflect key terms for accuracy.")
         s2 = st.text_area("2. Burden")
+        script_block("Agent Response: Clarify expectations and the firm's process; reassure about confidentiality.")
         s3 = st.text_area("3. Icebreaker")
+        script_block("Agent Response: Use a gentle opener to build rapport. Keep tone supportive and neutral.")
         s4 = st.text_area("4. Comments")
+        script_block("Agent Response: Note anything unusual, hesitations, or language needs.")
 
+        # 5–18 Client Contact
         st.markdown("---")
         st.subheader("Client Contact Details (5–18)")
-
         ccols = st.columns([1,1,1])
         with ccols[0]:
-            c_first = st.text_input("5. First Name", value="")
+            c_first = st.text_input("5. First Name")
         with ccols[1]:
-            c_middle = st.text_input("5. Middle Name", value="")
+            c_middle = st.text_input("5. Middle Name")
         with ccols[2]:
-            c_last = st.text_input("5. Last Name", value="")
-
+            c_last = st.text_input("5. Last Name")
+        script_block("Agent Response: Confirm legal name spelling exactly as on ID if possible.")
         c_email = st.text_input("6. Primary Email")
+        script_block("Agent Response: Verify spelling; ask to repeat slowly if needed.")
         c_addr = st.text_input("7. Mailing Address")
         c_city = st.text_input("8. City")
-        c_state = st.selectbox("9. State", STATE_OPTIONS, index=STATE_OPTIONS.index("Georgia") if "Georgia" in STATE_OPTIONS else 0)
+        c_state = st.selectbox("9. State", STATE_OPTIONS, index=(STATE_OPTIONS.index("Georgia") if "Georgia" in STATE_OPTIONS else 0))
         c_zip = st.text_input("10. Zip")
+        script_block("Agent Response: Confirm apartment/unit numbers where applicable.")
         c_home = st.text_input("11. Home Phone No.", placeholder="+1 (###) ###-####")
         c_cell = st.text_input("12. Cell Phone No.", placeholder="(###) ###-####")
+        script_block("Agent Response: Ask which number is best for call-backs and voicemail.")
         c_best_time = st.text_input("13. Best Time to Contact")
         c_pref_method = st.text_input("14. Preferred Method of Contact")
         c_dob = st.date_input("15. Date of Birth", value=TODAY.date())
         c_ssn = st.text_input("16. Social Security No.", placeholder="000-00-0000")
+        script_block("Agent Response: Only request SSN if firm policy requires; mention security.")
         c_claim_for = st.radio("17. Does the claim pertain to you or another person?", ["Myself","Someone Else"], horizontal=True)
-        c_prev_firm = st.text_area("18. Signed up with any law firm before and got disqualified? (explain)")
+        script_block("Agent Response: If 'Someone Else', capture relationship and authority later.")
+        c_prev_firm = st.text_area("18. Prior signup with a firm and disqualified? (explain)")
+        script_block("Agent Response: Neutral tone. Prior rejection doesn't automatically disqualify; we just need context.")
 
+        # 19–27 Injured Party
         st.markdown("---")
         st.subheader("Injured Party Details (19–27)")
         ip_name = st.text_input("19. Injured/Deceased Party's Full Name")
         ip_gender = st.text_input("20. Injured Party Gender")
         ip_dob = st.date_input("21. Injured/Deceased Party's DOB", value=TODAY.date())
         ip_ssn = st.text_input("22. Injured/Deceased Party's SS#", placeholder="000-00-0000")
+        script_block("Agent Response: If caller is not the injured party, confirm authority to share SSN/DOB.")
         ip_relationship = st.text_input("23. PC's Relationship to Injured/Deceased")
         ip_title = st.multiselect("24. Title to Represent", ["Executor","Administrator","Trustee","Conservator","Legal Guardian","Parent","Power of Attorney","Other Agent"])
         ip_has_poa = st.radio("25. Does caller have POA or other legal authority?", ["Yes","No"], horizontal=True)
         ip_has_proof = st.radio("26. Does caller have proof of legal authority?", ["Yes","No"], horizontal=True)
         ip_reason_no_discuss = st.selectbox("27. Reason PC cannot discuss case", ["Select","Minor","Incapacitated","Death","Other"])
+        script_block("Agent Response: If 'Other', capture brief reason; do not pressure for sensitive details.")
 
+        # 28–33 Death
         st.markdown("---")
         st.subheader("Death Details (28–33)")
         is_deceased = st.radio("28. Is the client deceased?", ["No","Yes"], horizontal=True)
+        if is_deceased == "Yes":
+            script_block("Agent Response: Be empathetic; slow pace; avoid leading questions.")
         dod = st.date_input("29. Date of Death (if applies)", value=TODAY.date()) if is_deceased=="Yes" else None
         cod = st.text_input("30. Cause of Death on Death Cert") if is_deceased=="Yes" else ""
-        death_state = st.selectbox("31. State of death", STATE_OPTIONS) if is_deceased=="Yes" else ""
+        death_state = st.selectbox("31. In what state did the death occur?", STATE_OPTIONS) if is_deceased=="Yes" else ""
         has_death_cert = st.radio("32. Do you have a death certificate?", ["No","Yes"], horizontal=True) if is_deceased=="Yes" else "No"
         right_to_claim_docs = st.text_area("33. Documentation of your right to the decedent’s claim?")
+        if is_deceased == "Yes":
+            script_block("Agent Response: Ask if a copy can be provided; explain secure transfer options.")
 
+        # 34–37 Emergency Contact
         st.markdown("---")
         st.subheader("Alternate / Emergency Contact (34–37)")
-        ec_name = st.text_input("34. Alt/Emergency Contact Name")
-        ec_relation = st.text_input("35. Relation to Client")
-        ec_phone = st.text_input("36. Alt/Emergency Contact Number", placeholder="+1 (###) ###-####")
-        ec_email = st.text_input("37. Alt/Emergency Contact Email")
+        ec_name = st.text_input("34. Alternate/Emergency Contact Name")
+        ec_relation = st.text_input("35. Alternate/Emergency Contact Relation to Client")
+        ec_phone = st.text_input("36. Alternate/Emergency Contact Number", placeholder="+1 (###) ###-####")
+        ec_email = st.text_input("37. Alternate/Emergency Contact Email")
+        script_block("Agent Response: This is optional but helpful if we can't reach the primary contact.")
 
+        # 38–51 Incident
         st.markdown("---")
         st.subheader("Incident Details (38–51)")
         was_driver_or_rider = st.radio("38. Were you the driver or rider during this incident?", ["Driver","Rider"], horizontal=True)
-        incident_narr = st.text_area("39. Describe what happened (purpose, location, seat, stopped/moving)")
-        has_incident_date = st.checkbox("40. Do you have the date of the incident?")
-        incident_date_known = st.date_input("Incident Date", value=TODAY.date()) if has_incident_date else None
-        rs_company = st.selectbox("41. Which Rideshare company did you use?", ["Uber","Lyft","Other"])
-        us_occurrence = st.radio("42. Did the incident occur within the United States?", ["Yes","No"], horizontal=True)
-        incident_state = st.selectbox("43. In what state did this happen?", STATE_OPTIONS)
-        pickup_addr = st.text_input("44. Pick-up location (full address)")
-        dropoff_addr = st.text_input("45. Drop-off location (full address)")
-        sexually_assaulted = st.radio("46. Sexually assaulted or inappropriately touched by the driver?", ["No","Yes"], horizontal=True)
-        fi_kidnapping = st.radio("47. False imprisonment or kidnapping with threats?", ["No","Yes"], horizontal=True)
-        verbal_harassment = st.radio("48. Subjected to verbal harassment?", ["No","Yes"], horizontal=True)
-        inside_or_near = st.radio("49. Incident occurred while using rideshare (inside/just outside)?", ["No","Yes"], horizontal=True)
-        driver_weapon = st.text_input("50. Did the driver threaten/use weapons or force? (describe)")
-        client_weapon = st.radio("51. Were you carrying a weapon at the time? (Note: non-lethal defense like pepper spray may not count)", ["No","Yes"], horizontal=True)
+        if was_driver_or_rider == "Rider":
+            script_block("If Rider: Okay, you were the rider. Thank you for clarifying that — this helps us understand who had control of the vehicle.")
+        else:
+            script_block("If Driver: Okay. You were the driver — thank you for sharing that. Unfortunately, the law firm is not currently taking cases where the driver was assaulted. I’m really sorry we cannot help you.")
 
+        incident_narr = st.text_area("39. Describe what happened (purpose of rideshare, location, seat, moving/stopped)")
+        script_block("Agent Response: “Thank you for sharing that with me. You said '[mirror key words]' — and that sounds incredibly difficult. This space is confidential.”")
+
+        has_incident_date = st.checkbox("40. Do you have the date the incident occurred?")
+        if has_incident_date:
+            incident_date_known = st.date_input("40.a Incident Date", value=TODAY.date())
+            script_block("Agent Response: “Got it. The date was [repeat date]. The timing helps us document and connect the ride.”")
+        else:
+            incident_date_known = None
+
+        rs_company = st.selectbox("41. Which Rideshare company did you use?", ["Uber","Lyft","Other"])
+        script_block("Agent Response: “[Company], got it. This helps determine responsibility and verify who operated the ride.”")
+
+        us_occurrence = st.radio("42. Did the incident occur within the United States?", ["Yes","No"], horizontal=True)
+        script_block("Agent Response: If 'No', note the country/jurisdiction briefly for conflicts checks.")
+
+        incident_state = st.selectbox("43. What state did this happen?", STATE_OPTIONS)
+        script_block("Agent Response: “Okay. [Repeat state]. Thank you.”")
+
+        pickup_addr = st.text_input("44. Pick-up location (full address)")
+        script_block("Agent Response: “You were picked up from [repeat location]. Helps reconstruct the trip.”")
+
+        dropoff_addr = st.text_input("45. Drop-off location (full address)")
+        script_block("Agent Response: “You were dropped off at [location]. Helps build out the trip details.”")
+
+        sexually_assaulted = st.radio("46. Were you sexually assaulted or inappropriately touched by the driver?", ["No","Yes"], horizontal=True)
+        if sexually_assaulted == "Yes":
+            script_block("Agent Response: “I’m really sorry to hear you were [repeat relevant details]. Thank you for trusting us.”")
+        else:
+            script_block("Agent Response: If 'No', continue neutrally; do not minimize verbal/other harms.")
+
+        fi_kidnapping = st.radio("47. False imprisonment or kidnapping (restraint/restriction) with threats?", ["No","Yes"], horizontal=True)
+        if fi_kidnapping == "Yes":
+            script_block("Agent Response: “That sounds terrifying — we want to ensure the firm understands how serious this was.”")
+
+        verbal_harassment = st.radio("48. Were you subjected to verbal harassment?", ["No","Yes"], horizontal=True)
+        if verbal_harassment == "Yes":
+            script_block("Agent Response: “Even when it’s not physical, those moments are serious and deserve to be heard.”")
+
+        inside_or_near = st.radio("49. Did this occur while using the Rideshare service (inside or just outside the vehicle)?", ["No","Yes"], horizontal=True)
+        if inside_or_near == "Yes":
+            script_block("Agent Response: “Knowing that it happened while using the rideshare helps confirm scope of responsibility.”")
+
+        driver_weapon = st.text_input("50. Did the driver threaten to use or actually use any weapons/force? (describe)")
+        if driver_weapon.strip():
+            script_block("Agent Response: “Thank you. That’s very serious; details help paint a full picture.”")
+        else:
+            script_block("Agent Response: If no weapon, reassure: the incident is still serious.")
+
+        client_weapon = st.radio("51. Were you carrying a weapon at the time? (Personal defense like pepper spray may not count)", ["No","Yes"], horizontal=True)
+        if client_weapon == "Yes":
+            script_block("Agent Response: “Thanks for your honesty. Some guidelines may disqualify where the victim had a weapon.”")
+        else:
+            script_block("Agent Response: “Okay, you did not have a weapon with you. That’s all we need on that part.”")
+
+        # 52–61 Reporting/Treatment
         st.markdown("---")
         st.subheader("Reporting & Treatment Details (52–61)")
-        has_receipt = st.radio("52. Able to reproduce the Rideshare Receipt?", ["Yes","No"], horizontal=True)
+        has_receipt = st.radio("52. Are you able to reproduce the Rideshare receipt?", ["Yes","No"], horizontal=True)
+        if has_receipt == "Yes":
+            script_block("Agent Response: “Great—you can access it via the app or email. It’s key proof linking ride to incident.”")
+        else:
+            script_block("Agent Response: “Please try the app/email; we can guide you. It’s important evidence.”")
+
         reported_channels = st.multiselect(
             "53. Did you report the incident to any of the following?",
             ["Rideshare Company","Physician","Friend or Family Member","Therapist","Police Department","NO (DQ, UNLESS TIER 1 OR MINOR)"]
         )
-        rs_submit_how = st.text_input("54. If submitted to Rideshare: how (email/app)?")
-        willing_to_report = st.radio("55. If not submitted via app/email: willing to report if the firm recommends?", ["Yes","No","Unsure"], horizontal=True)
-        rs_received_response = st.radio("56. Did you receive a response from Uber/Lyft?", ["No","Yes"], horizontal=True)
-        report_contact_info = st.text_area("57. Contact info of person/org reported to (Name, Relationship, Address, Phone, Date Reported)")
+        if reported_channels:
+            script_block(f"Agent Response: “Good—you reported to {', '.join(reported_channels)}. That shows you took steps to get help.”")
+        else:
+            script_block("Agent Response: “Not reporting can make it difficult to pursue, but we’ll note it and advise.”")
 
+        rs_submit_how = st.text_input("54. If submitted to Rideshare: how did you submit (email/app)?")
+        if rs_submit_how.strip():
+            script_block("Agent Response: “Submitted via {email/app} is fine—thanks for clarifying.”")
+
+        willing_to_report = st.radio("55. If not submitted via app/email: willing to report if the firm recommends?", ["Yes","No","Unsure"], horizontal=True)
+        if willing_to_report == "Yes":
+            script_block("Agent Response: “Thank you for being open. The firm will guide you step-by-step if needed.”")
+        elif willing_to_report == "No":
+            script_block("Agent Response: “Understood. If it becomes important later, the firm will discuss options.”")
+        else:
+            script_block("Agent Response: “No problem—if the firm recommends it later, they’ll walk you through it.”")
+
+        rs_received_response = st.radio("56. Did you receive a response from Uber or Lyft?", ["No","Yes"], horizontal=True)
+        if rs_received_response == "Yes":
+            script_block("Agent Response: “Got it—please forward any emails or screenshots you received.”")
+        else:
+            script_block("Agent Response: “That can be frustrating. We’ll document that there was no response.”")
+
+        report_contact_info = st.text_area("57. Contact info for the person/entity reported to (Name, Relationship, Address, Phone, Date Reported)")
+        if report_contact_info.strip():
+            script_block("Agent Response: “Perfect—that helps us corroborate your report.”")
+
+        # 58–61 If called Uber/Lyft
         st.subheader("If PC called Uber or Lyft (58–61)")
         where_found_number = st.text_input("58. Where did you find the phone number you called?")
-        got_case_number = st.radio("59. Did you receive a confirmation or case number from that call?", ["No","Yes"], horizontal=True)
-        who_answered = st.text_input("60. When you called, did someone say they were with Uber/Lyft or just take info?")
-        follow_up_after_call = st.text_area("61. Any follow-up after the call? (email/app/instructions or none)")
+        if where_found_number.strip():
+            script_block("Agent Response: “Thanks. Many call numbers found online or in emails—your source helps us verify.”")
 
+        got_case_number = st.radio("59. Did you receive a confirmation or case number from that call?", ["No","Yes"], horizontal=True)
+        if got_case_number == "Yes":
+            script_block("Agent Response: “Great—that helps track whether Uber created an internal file.”")
+        else:
+            script_block("Agent Response: “Okay—many callers don’t receive a case number. We’ll document it.”")
+
+        who_answered = st.text_input("60. On the call, did someone say they were with Uber/Lyft or just take info?")
+        if who_answered.strip():
+            script_block("Agent Response: “Thanks—that clarifies who you spoke to; many aren’t sure.”")
+
+        follow_up_after_call = st.text_area("61. Any follow-up after the call (email/app/instructions)? Or none?")
+        if follow_up_after_call.strip():
+            script_block("Agent Response: “Thanks—please forward any message you received for the record.”")
+        else:
+            script_block("Agent Response: “Not hearing back is common; we’ll note that there was no follow-up.”")
+
+        # 62–68 Medical
         st.markdown("---")
         st.subheader("Medical Treatment Details (62–68)")
-        forms_signed_for_records = st.text_input("62. Signed any forms for anyone to get your medical records? Who?")
+        forms_signed_for_records = st.text_input("62. Signed any forms to obtain medical records? (Who?)")
         med_treated = st.radio("63. Received medical treatment for physical injuries?", ["No","Yes"], horizontal=True)
         med_treatment_desc = st.text_area("64. Describe medical treatment")
         med_doctor = st.text_input("65. Doctor who diagnosed you")
-        med_facility = st.text_input("66. Hospital/Facility where diagnosis done")
+        med_facility = st.text_input("66. Hospital/Facility where diagnosis was done")
         med_address = st.text_input("67. Hospital/Facility/Doctor's Address")
         med_phone = st.text_input("68. Hospital/Facility/Doctor's Phone Number", placeholder="+1 (###) ###-####")
+        if med_treated == "Yes":
+            script_block("Agent Response: “Thank you—treatment details help establish damages and timeline.”")
 
+        # 69–77 MH1
         st.markdown("---")
         st.subheader("Mental Health Treatment Details 1 (69–77)")
-        mh1_yes = st.radio("69. Received mental health treatment related to assault?", ["No","Yes"], horizontal=True)
-        mh1_desc = st.text_area("70. Describe mental health treatment (general)")
-        mh1_doctor = st.text_input("71. Doctor who treated you")
-        mh1_hospital = st.text_input("72. Hospital where treated")
+        mh1_yes = st.radio("69. Received mental health treatment related to the assault?", ["No","Yes"], horizontal=True)
+        mh1_desc = st.text_area("70. Describe mental health treatment so far (general)")
+        mh1_doctor = st.text_input("71. Name of the doctor who treated you")
+        mh1_hospital = st.text_input("72. Hospital where you received treatment")
         mh1_address = st.text_input("73. Hospital's Address")
         mh1_phone = st.text_input("74. Hospital's Phone Number", placeholder="+1 (###) ###-####")
-        mh1_website = st.text_input("75. Hospital's Website")
+        mh1_website = st.text_input("75. Hospital's Website Address")
         mh1_diagnosis = st.text_input("76. Diagnosed Ailment / Diagnosis Date(s)")
-        mh1_treatment = st.text_area("77. Treatment Type / Treatment Date(s)")
+        mh1_treatment = st.text_area("77. Treatment Type / Treatment Date(s) (detail)")
+        if mh1_yes == "Yes":
+            script_block("Agent Response: “Understood—documenting therapy and diagnosis supports the case.”")
 
+        # 78–86 MH2
         st.markdown("---")
         st.subheader("Mental Health Treatment Details 2 (78–86)")
-        mh2_yes = st.radio("78. Received mental health treatment related to assault? (2)", ["No","Yes"], horizontal=True)
-        mh2_desc = st.text_area("79. Describe mental health treatment (general) (2)")
-        mh2_doctor = st.text_input("80. Doctor who treated you (2)")
-        mh2_hospital = st.text_input("81. Hospital where treated (2)")
+        mh2_yes = st.radio("78. Received mental health treatment related to the assault? (second set)", ["No","Yes"], horizontal=True)
+        mh2_desc = st.text_area("79. Describe mental health treatment so far (general) (2)")
+        mh2_doctor = st.text_input("80. Name of the doctor who treated you (2)")
+        mh2_hospital = st.text_input("81. Hospital where you received treatment (2)")
         mh2_address = st.text_input("82. Hospital's Address (2)")
         mh2_phone = st.text_input("83. Hospital's Phone Number (2)", placeholder="+1 (###) ###-####")
-        mh2_website = st.text_input("84. Hospital's Website (2)")
+        mh2_website = st.text_input("84. Hospital's Website Address (2)")
         mh2_diagnosis = st.text_input("85. Diagnosed Ailment / Diagnosis Date(s) (2)")
-        mh2_treatment = st.text_area("86. Treatment Type / Treatment Date(s) (2)")
+        mh2_treatment = st.text_area("86. Treatment Type / Treatment Date(s) (2) — detail")
+        if mh2_yes == "Yes":
+            script_block("Agent Response: “Thanks—capturing all providers ensures complete records.”")
 
+        # 87–94 Additional providers
         st.markdown("---")
         st.subheader("Additional Medical / Mental Health Providers (87–94)")
         am_name = st.text_input("87. Doctor/Facility Name")
@@ -570,85 +660,100 @@ def render_wagstaff_questions():
         am_phone = st.text_input("89. Phone Number", placeholder="+1 (###) ###-####")
         am_website = st.text_input("90. Website Address")
         am_diagnosis = st.text_input("91. Diagnosed Ailment / Diagnosis Date(s)")
-        am_symptoms = st.text_input("92. Symptoms")
+        am_symptoms = st.text_input("92. Symptom(s)")
         am_treatment = st.text_input("93. Treatment Type / Treatment Date(s)")
         am_comments = st.text_area("94. Comments")
+        script_block("Agent Response: Add any other clinics, urgent care, or counselors not already listed.")
 
+        # 95–103 Pharmacy
         st.markdown("---")
         st.subheader("Pharmacy for Medications (95–103)")
         ph_name = st.text_input("95. Pharmacy Name")
         ph_phone = st.text_input("96. Phone", placeholder="+1 (###) ###-####")
         ph_website = st.text_input("97. Website")
-        ph_address = st.text_input("98. Full Address (Street, City, Zip)")
+        ph_address = st.text_input("98. Full Street, City, Zip Address")
         ph_med1 = st.text_input("99. Ailment / Medication / Dates Prescribed")
         ph_med2 = st.text_input("100. Ailment / Medication / Dates Prescribed")
         ph_comments = st.text_area("101. Comments")
         ph_med3 = st.text_input("102. Ailment / Medication / Date Prescribed")
+        script_block("Agent Response: Pharmacy records can corroborate treatment and timing.")
 
-        affirm = st.radio("103. Do you affirm the information is true and correct (including previous firm signup)?", ["Yes","No"], horizontal=True)
+        affirm = st.radio("103. Do you affirm the accuracy of all information (including prior firm signup)?", ["Yes","No"], horizontal=True)
+        if affirm == "Yes":
+            script_block("Agent Response: “Thank you—your confirmation is noted.”")
+        else:
+            script_block("Agent Response: “No problem—we can correct anything as needed before submission.”")
 
+        # 104–105 Technical
         st.markdown("---")
         st.subheader("Technical (104–105)")
         ip_addr = st.text_input("104. IP Address")
         jornaya = st.text_area("105. Trusted Form / Jornaya Data")
+        script_block("Agent Response: These are for verification only; do not share externally.")
 
+        # Save
         submitted = st.form_submit_button("Save Wagstaff Answers")
         if submitted:
             st.session_state.answers_wag = {
                 # 1–4
-                "statement_of_case": s1, "burden": s2, "icebreaker": s3, "comments": s4,
+                "1_statement_of_case": s1, "2_burden": s2, "3_icebreaker": s3, "4_comments": s4,
                 # 5–18 Client
-                "client_first": c_first, "client_middle": c_middle, "client_last": c_last,
-                "client_email": c_email, "client_addr": c_addr, "client_city": c_city, "client_state": c_state,
-                "client_zip": c_zip, "client_home": c_home, "client_cell": c_cell, "best_time": c_best_time,
-                "pref_method": c_pref_method, "dob": str(c_dob), "ssn": c_ssn, "claim_for": c_claim_for,
-                "prev_firm": c_prev_firm,
+                "5_first": c_first, "5_middle": c_middle, "5_last": c_last,
+                "6_email": c_email, "7_addr": c_addr, "8_city": c_city, "9_state": c_state,
+                "10_zip": c_zip, "11_home": c_home, "12_cell": c_cell, "13_best_time": c_best_time,
+                "14_pref_contact": c_pref_method, "15_dob": str(c_dob), "16_ssn": c_ssn,
+                "17_claim_for": c_claim_for, "18_prev_firm": c_prev_firm,
                 # 19–27 Injured Party
-                "ip_name": ip_name, "ip_gender": ip_gender, "ip_dob": str(ip_dob), "ip_ssn": ip_ssn,
-                "ip_relationship": ip_relationship, "ip_title": ip_title, "ip_has_poa": ip_has_poa,
-                "ip_has_proof": ip_has_proof, "ip_reason_no_discuss": ip_reason_no_discuss,
+                "19_ip_name": ip_name, "20_ip_gender": ip_gender, "21_ip_dob": str(ip_dob), "22_ip_ssn": ip_ssn,
+                "23_ip_relationship": ip_relationship, "24_ip_title": ip_title,
+                "25_ip_has_poa": ip_has_poa, "26_ip_has_proof": ip_has_proof,
+                "27_ip_reason_no_discuss": ip_reason_no_discuss,
                 # 28–33 Death
-                "is_deceased": is_deceased, "date_of_death": str(dod) if dod else "", "cause_of_death": cod,
-                "death_state": death_state, "has_death_cert": has_death_cert, "right_to_claim_docs": right_to_claim_docs,
+                "28_is_deceased": is_deceased, "29_date_of_death": str(dod) if dod else "",
+                "30_cause_of_death": cod, "31_death_state": death_state, "32_has_death_cert": has_death_cert,
+                "33_right_to_claim_docs": right_to_claim_docs,
                 # 34–37 EC
-                "ec_name": ec_name, "ec_relation": ec_relation, "ec_phone": ec_phone, "ec_email": ec_email,
+                "34_ec_name": ec_name, "35_ec_relation": ec_relation, "36_ec_phone": ec_phone, "37_ec_email": ec_email,
                 # 38–51 Incident
-                "driver_or_rider": was_driver_or_rider, "incident_narrative": incident_narr,
-                "has_incident_date": has_incident_date, "incident_date": str(incident_date_known) if incident_date_known else "",
-                "rideshare_company": rs_company, "in_us": us_occurrence, "incident_state": incident_state,
-                "pickup_addr": pickup_addr, "dropoff_addr": dropoff_addr, "sexually_assaulted": sexually_assaulted,
-                "false_imprisonment_kidnap": fi_kidnapping, "verbal_harassment": verbal_harassment,
-                "inside_or_near": inside_or_near, "driver_weapon_desc": driver_weapon, "client_weapon": client_weapon,
+                "38_driver_or_rider": was_driver_or_rider, "39_incident_narrative": incident_narr,
+                "40_has_incident_date": has_incident_date, "40a_incident_date": str(incident_date_known) if incident_date_known else "",
+                "41_rideshare_company": rs_company, "42_in_us": us_occurrence, "43_incident_state": incident_state,
+                "44_pickup_addr": pickup_addr, "45_dropoff_addr": dropoff_addr,
+                "46_sexually_assaulted": sexually_assaulted, "47_fi_kidnapping": fi_kidnapping,
+                "48_verbal_harassment": verbal_harassment, "49_inside_or_near": inside_or_near,
+                "50_driver_weapon_desc": driver_weapon, "51_client_weapon": client_weapon,
                 # 52–61 Reporting
-                "has_receipt": has_receipt, "reported_channels": reported_channels,
-                "rs_submit_how": rs_submit_how, "willing_to_report": willing_to_report,
-                "rs_received_response": rs_received_response, "report_contact_info": report_contact_info,
-                "where_found_number": where_found_number, "got_case_number": got_case_number,
-                "who_answered": who_answered, "follow_up_after_call": follow_up_after_call,
+                "52_has_receipt": has_receipt, "53_reported_channels": reported_channels,
+                "54_rs_submit_how": rs_submit_how, "55_willing_to_report": willing_to_report,
+                "56_rs_received_response": rs_received_response, "57_report_contact_info": report_contact_info,
+                # 58–61 call branch
+                "58_where_found_number": where_found_number, "59_got_case_number": got_case_number,
+                "60_who_answered": who_answered, "61_follow_up_after_call": follow_up_after_call,
                 # 62–68 Medical
-                "forms_signed_for_records": forms_signed_for_records, "med_treated": med_treated,
-                "med_treatment_desc": med_treatment_desc, "med_doctor": med_doctor, "med_facility": med_facility,
-                "med_address": med_address, "med_phone": med_phone,
+                "62_forms_signed_for_records": forms_signed_for_records, "63_med_treated": med_treated,
+                "64_med_treatment_desc": med_treatment_desc, "65_med_doctor": med_doctor,
+                "66_med_facility": med_facility, "67_med_address": med_address, "68_med_phone": med_phone,
                 # 69–77 MH1
-                "mh1_yes": mh1_yes, "mh1_desc": mh1_desc, "mh1_doctor": mh1_doctor,
-                "mh1_hospital": mh1_hospital, "mh1_address": mh1_address, "mh1_phone": mh1_phone,
-                "mh1_website": mh1_website, "mh1_diagnosis": mh1_diagnosis, "mh1_treatment": mh1_treatment,
+                "69_mh1_yes": mh1_yes, "70_mh1_desc": mh1_desc, "71_mh1_doctor": mh1_doctor,
+                "72_mh1_hospital": mh1_hospital, "73_mh1_address": mh1_address, "74_mh1_phone": mh1_phone,
+                "75_mh1_website": mh1_website, "76_mh1_diagnosis": mh1_diagnosis, "77_mh1_treatment": mh1_treatment,
                 # 78–86 MH2
-                "mh2_yes": mh2_yes, "mh2_desc": mh2_desc, "mh2_doctor": mh2_doctor,
-                "mh2_hospital": mh2_hospital, "mh2_address": mh2_address, "mh2_phone": mh2_phone,
-                "mh2_website": mh2_website, "mh2_diagnosis": mh2_diagnosis, "mh2_treatment": mh2_treatment,
+                "78_mh2_yes": mh2_yes, "79_mh2_desc": mh2_desc, "80_mh2_doctor": mh2_doctor,
+                "81_mh2_hospital": mh2_hospital, "82_mh2_address": mh2_address, "83_mh2_phone": mh2_phone,
+                "84_mh2_website": mh2_website, "85_mh2_diagnosis": mh2_diagnosis, "86_mh2_treatment": mh2_treatment,
                 # 87–94 Additional
-                "am_name": am_name, "am_address": am_address, "am_phone": am_phone,
-                "am_website": am_website, "am_diagnosis": am_diagnosis, "am_symptoms": am_symptoms,
-                "am_treatment": am_treatment, "am_comments": am_comments,
+                "87_am_name": am_name, "88_am_address": am_address, "89_am_phone": am_phone,
+                "90_am_website": am_website, "91_am_diagnosis": am_diagnosis, "92_am_symptoms": am_symptoms,
+                "93_am_treatment": am_treatment, "94_am_comments": am_comments,
                 # 95–103 Pharmacy
-                "ph_name": ph_name, "ph_phone": ph_phone, "ph_website": ph_website, "ph_address": ph_address,
-                "ph_med1": ph_med1, "ph_med2": ph_med2, "ph_comments": ph_comments, "ph_med3": ph_med3,
-                # 103–105 Affirm + tech
-                "affirm": affirm, "ip_address": ip_addr, "jornaya": jornaya
+                "95_ph_name": ph_name, "96_ph_phone": ph_phone, "97_ph_website": ph_website, "98_ph_address": ph_address,
+                "99_ph_med1": ph_med1, "100_ph_med2": ph_med2, "101_ph_comments": ph_comments, "102_ph_med3": ph_med3,
+                # 103–105
+                "103_affirm": affirm, "104_ip_address": ip_addr, "105_jornaya": jornaya
             }
-            st.success("Wagstaff answers saved in session. Use Export below to download.")
+            st.success("Wagstaff answers saved. Use Export below to download.")
 
+    # Footer
     colA, colB, colC = st.columns([1,1,2])
     with colA:
         if st.button("Back to Intake"):
@@ -662,25 +767,24 @@ def render_wagstaff_questions():
             csv_bytes = df.to_csv(index=False).encode("utf-8")
             st.download_button("Download wagstaff_followup.csv", data=csv_bytes, file_name="wagstaff_followup.csv", mime="text/csv", key="dl_wag_csv_btn")
     with colC:
-        st.caption("All 1–105 Wagstaff questions implemented. Tell me any wording tweaks or required fields.")
+        st.caption("All questions 1–105 include visible agent script blocks. Dynamic lines switch based on answers.")
 
 # =========================
 # TRITEN PLACEHOLDER (send exact list to wire)
 # =========================
 def render_triten_questions():
     st.header("Triten – Follow-up Questions (placeholder)")
-    st.info("Send your exact Triten question list and field types and I’ll wire them in.")
-    q1 = st.date_input("Earliest report date (any channel)", value=TODAY.date(), key="tri_q1")
-    q2 = st.text_input("Rideshare case/incident #", key="tri_q2")
-    q3 = st.checkbox("Driver made explicit sexual/physical threats", key="tri_q3")
-    q4 = st.checkbox("Off-route / False imprisonment", key="tri_q4")
-    q5 = st.text_area("Physical or psychological injuries (summary)", key="tri_q5")
-    q6 = st.checkbox("Ongoing therapy/treatment", key="tri_q6")
+    q1 = st.date_input("T1. Earliest report date (any channel)", value=TODAY.date())
+    q2 = st.text_input("T2. Rideshare case/incident #")
+    q3 = st.checkbox("T3. Driver made explicit sexual/physical threats")
+    q4 = st.checkbox("T4. Off-route / False imprisonment")
+    q5 = st.text_area("T5. Physical or psychological injuries (summary)")
+    q6 = st.checkbox("T6. Ongoing therapy/treatment")
 
     st.session_state.answers_tri = {
-        "earliest_report_date": str(q1), "rs_case_no": q2,
-        "threats": q3, "offroute_or_fi": q4,
-        "injuries": q5, "therapy": q6
+        "T1_earliest_report_date": str(q1), "T2_rs_case_no": q2,
+        "T3_threats": q3, "T4_offroute_or_fi": q4,
+        "T5_injuries": q5, "T6_therapy": q6
     }
     colA, colB = st.columns([1,1])
     with colA:
