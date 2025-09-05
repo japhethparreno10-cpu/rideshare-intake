@@ -96,6 +96,23 @@ def script_block(text: str):
     if not text: return
     st.markdown(f"<div class='script'>{text}</div>", unsafe_allow_html=True)
 
+# reusable scripted radios
+def yesno(label, key, script_yes=None, script_no=None, default="No"):
+    options = ["No","Yes"]
+    index = 0 if default == "No" else 1
+    val = st.radio(label, options, horizontal=True, key=key, index=index)
+    if val == "Yes" and script_yes:
+        script_block(script_yes)
+    if val == "No" and script_no:
+        script_block(script_no)
+    return val
+
+def pick(label, options, key, scripts_by_value=None, horizontal=False, index=0):
+    val = st.radio(label, options, horizontal=horizontal, key=key, index=index)
+    if scripts_by_value and val in scripts_by_value:
+        script_block(scripts_by_value[val])
+    return val
+
 # =========================
 # SESSION STATE
 # =========================
@@ -280,9 +297,10 @@ def render_intake_and_decision():
     tri_disq = []
     if verbal_only: tri_disq.append("Verbal abuse only → does not qualify")
     if attempt_only: tri_disq.append("Attempt/minor contact only → does not qualify")
-    if has_atty: tri_disq.append("Already has attorney → cannot intake")
+       # needs a report within 14d
     if earliest_report_date is None: tri_disq.append("No report date provided for any channel")
     if not triten_report_ok: tri_disq.append("Report not within 2 weeks (based on earliest report date)")
+    if has_atty: tri_disq.append("Already has attorney → cannot intake")
     triten_ok = common_ok and triten_report_ok and base_tier_ok and not tri_disq
 
     # COMPANY POLICY: Triten (Uber & Lyft); Waggy (Uber only); Priority Triten if both
@@ -396,20 +414,20 @@ def render_intake_and_decision():
     st.caption("Firm rules: Triten = Uber & Lyft; Waggy = Uber only; Priority = Triten if both eligible. Wagstaff: Family/Friends-only report must be within 24h; file 45 days before SOL; no felonies, no weapons (non-lethal defensive OK). Triten: earliest report within 2 weeks.")
 
 # =========================
-# WAGSTAFF QUESTION FLOW WITH EXACT VISIBLE SCRIPTS (38–61 and others)
+# WAGSTAFF QUESTION FLOW – DYNAMIC SCRIPTS FOR YES/NO
 # =========================
 def render_wagstaff_questions():
     st.header("Wagstaff – Detailed Questionnaire")
 
     with st.form("wagstaff_form", clear_on_submit=False):
-        # 1–4 Narrative (no specific script text provided—left without script blocks)
+        # 1–4 Narrative
         st.subheader("1–4. Narrative")
         s1 = st.text_area("1. Statement of the Case:")
         s2 = st.text_area("2. Burden:")
         s3 = st.text_area("3. Icebreaker:")
         s4 = st.text_area("4. Comments:")
 
-        # 5–18 Client Contact Details (labels as specified)
+        # CLIENT CONTACT (5–18)
         st.markdown("---")
         st.subheader("CLIENT CONTACT DETAILS")
         ccols = st.columns([1,1,1])
@@ -433,7 +451,7 @@ def render_wagstaff_questions():
         c_claim_for = st.radio("17. Does the claim pertain to you or another person?", ["Myself","Someone Else"], horizontal=True)
         c_prev_firm = st.text_area("18. As far as you can remember, have you signed up with any Law Firm to represent you on this case but then got disqualified for any reason . . . we still might be able to help but need to know?")
 
-        # 19–27 Injured Party Details
+        # INJURED PARTY (19–27)
         st.markdown("---")
         st.subheader("INJURED PARTY DETAILS")
         ip_name = st.text_input("19. Injured/Deceased Party's Full Name (First, Middle, & Last Name):")
@@ -446,7 +464,7 @@ def render_wagstaff_questions():
         ip_has_proof = st.radio("26. Does caller have proof of legal authority?", ["Yes","No"], horizontal=True)
         ip_reason_no_discuss = st.selectbox("27. Reason PC cannot discuss case:", ["Select","Minor","Incapacitated","Death","Other"])
 
-        # 28–33 Death
+        # DEATH (28–33)
         st.markdown("IF INJURED CLAIMANT DIED:  (Please provide copy of Death Certificate to Paralegal When Confirming Details)")
         is_deceased = st.radio("28. Is the client deceased?", ["No","Yes"], horizontal=True)
         dod = st.date_input("29. Date of Death (if applies):", value=TODAY.date()) if is_deceased=="Yes" else None
@@ -455,7 +473,7 @@ def render_wagstaff_questions():
         has_death_cert = st.radio("32. Do you have a death certificate?", ["Yes","No"], horizontal=True) if is_deceased=="Yes" else "No"
         right_to_claim_docs = st.text_area("33. Documentation of your right to the decedent’s claim?")
 
-        # 34–37 Alternate / Emergency Contact
+        # EMERGENCY CONTACT (34–37)
         st.markdown("---")
         st.subheader("ALTERNATE  / EMERGENCY CONTACT DETAILS")
         ec_name = st.text_input("34. Alternate / Emergency Contact First & Last Name")
@@ -463,25 +481,27 @@ def render_wagstaff_questions():
         ec_phone = st.text_input("36. Alternate / Emergency Contact Number", placeholder="+1 (###) ###-####")
         ec_email = st.text_input("37. Alternate / Emergency Contact Email")
 
-        # 38–51 Incident Details with EXACT scripts
+        # INCIDENT (38–51) with dynamic scripts
         st.markdown("---")
         st.subheader("INCIDENT DETAILS")
 
-        was_driver_or_rider = st.radio(
+        was_driver_or_rider = pick(
             "38. Were you the driver or rider during this incident?",
-            ["Driver","Rider"], horizontal=True
+            ["Driver","Rider"],
+            key="q38",
+            horizontal=True,
+            scripts_by_value={
+                "Rider": "If Rider: Okay, you were the rider. Thank you for clarifying that — this helps us understand who had control of the vehicle.",
+                "Driver": "If Driver: Okay. You were the driver — thank you for sharing that. Unfortunately, the law firm is not currently taking cases where the driver was assaulted. I’m really sorry we cannot help you."
+            }
         )
-        if was_driver_or_rider == "Rider":
-            script_block("If Rider: Okay, you were the rider. Thank you for clarifying that — this helps us understand who had control of the vehicle.")
-        else:
-            script_block("If Driver: Okay. You were the driver — thank you for sharing that. Unfortunately, the law firm is not currently taking cases where the driver was assaulted. I’m really sorry we cannot help you.")
 
         incident_narr = st.text_area(
             '39. I know it’s not always easy to talk about the incident and we appreciate you trusting us with these details. Can you please describe what happened in your own words. (Allow claimant to speak freely.)  (Include purpose of rideshare and type of location, like business or residence; front or back seat; vehicle stopped or moving during assault.)'
         )
         script_block('Agent Response: Thank you for sharing that with me. You said "[mirror key words]" — and that sounds incredibly difficult. I want you to know this space is confidential, and you\'re doing the right thing by speaking up.')
 
-        has_incident_date = st.radio("40. Do you have the Date the incident occurred?", ["No","Yes"], horizontal=True)
+        has_incident_date = pick("40. Do you have the Date the incident occurred?", ["No","Yes"], key="q40", horizontal=True)
         if has_incident_date == "Yes":
             incident_date_known = st.date_input("40.a Select date", value=TODAY.date())
             script_block("Agent Response: Got it. The date was [repeat date]. The timing really helps us document everything properly and connect the incident with the Rideshare trip. So thank you for that.")
@@ -491,7 +511,7 @@ def render_wagstaff_questions():
         rs_company = st.selectbox("41. Which Rideshare company did you use?", ["Uber","Lyft","Other"])
         script_block("Agent Response: [Rideshare company name], got it. That helps the law firm determine who may be held responsible and verify who operated the ride at the time. You’re doing great.")
 
-        us_occurrence = st.radio("42. Did the incident occur within the United States?", ["Yes","No"], horizontal=True)
+        us_occurrence = pick("42. Did the incident occur within the United States?", ["Yes","No"], key="q42", horizontal=True)
 
         incident_state = st.selectbox("43. What state this this happen?", STATE_OPTIONS)
         script_block("Agent Response: Okay. [Repeat state]. Thank you.")
@@ -502,79 +522,133 @@ def render_wagstaff_questions():
         dropoff_addr = st.text_input("45. And where was the Drop-off location? (Need full address)")
         script_block("Agent Response: Okay, you were dropped off at [location]. Thank you. That’s helpful in building out the trip details.")
 
-        sexually_assaulted = st.radio("46. You’re doing great. Were you sexually assaulted or inappropriately touched by the Rideshare driver?", ["No","Yes"], horizontal=True)
-        script_block("Agent Response: Okay, I’m really sorry to hear you were [repeat relevant details] and put in that situation. It’s incredibly brave of you to talk about it. Thank you for trusting us with this.")
+        sexually_assaulted = yesno(
+            "46. You’re doing great. Were you sexually assaulted or inappropriately touched by the Rideshare driver?",
+            key="q46",
+            script_yes="Agent Response: Okay, I’m really sorry to hear you were [repeat relevant details] and put in that situation. It’s incredibly brave of you to talk about it. Thank you for trusting us with this.",
+            script_no="Agent Response: Thank you for clarifying. We’ll continue neutrally and document everything carefully."
+        )
 
-        fi_kidnapping = st.radio("47. During this incident, were you subjected to false imprisonment or kidnapping (such as physical/verbal restraint or restriction of movement) with overt or physical threats)?", ["No","Yes"], horizontal=True)
-        script_block("Agent Response: That sounds terrifying – you mentioned [repeat some relevant acts], and I’m really sorry you went through that. We want to make sure the law firm understands how serious this was.")
+        fi_kidnapping = yesno(
+            "47. During this incident, were you subjected to false imprisonment or kidnapping (such as physical/verbal restraint or restriction of movement) with overt or physical threats)?",
+            key="q47",
+            script_yes="Agent Response: That sounds terrifying – you mentioned [repeat some relevant acts], and I’m really sorry you went through that. We want to make sure the law firm understands how serious this was.",
+            script_no="Agent Response: Thank you. We’ll continue through the next questions."
+        )
 
-        verbal_harassment = st.radio("48. Were you subjected to verbal harassment?", ["No","Yes"], horizontal=True)
-        script_block("If Yes: Okay, so you did experience verbal harassment – I’m sorry you had to endure that. Even when it’s not physical, those moments are serious and deserve to be heard.")
+        verbal_harassment = yesno(
+            "48. Were you subjected to verbal harassment?",
+            key="q48",
+            script_yes="If Yes: Okay, so you did experience verbal harassment – I’m sorry you had to endure that. Even when it’s not physical, those moments are serious and deserve to be heard.",
+            script_no="Thank you for clarifying. We’ll proceed."
+        )
 
-        inside_or_near = st.radio("49. Did the incident occur while utilizing the Rideshare service, either inside or just outside the vehicle?", ["No","Yes"], horizontal=True)
-        script_block("If Yes: Okay. So, it happened [repeat where happened]. Thank you. Knowing where it happened while using the Rideshare helps confirm that it’s within the scope of the Rideshare’s responsibility, which includes providing a safe means of transportation.")
+        inside_or_near = yesno(
+            "49. Did the incident occur while utilizing the Rideshare service, either inside or just outside the vehicle?",
+            key="q49",
+            script_yes="If Yes: Okay. So, it happened [repeat where happened]. Thank you. Knowing where it happened while using the Rideshare helps confirm that it’s within the scope of the Rideshare’s responsibility, which includes providing a safe means of transportation.",
+            script_no="Understood. We’ll note the location context accordingly."
+        )
 
+        # Q50 is a text explanation; show branch based on whether any details are provided
         driver_weapon = st.text_area("50. Did the driver threaten to us or actually use any weapons? Or use means of force during the sexual assault, such as gun, knife, or choking? If yes, please elaborate.")
-        script_block("If Yes: Okay, [repeat type of weapon or means of force]. That’s very serious and the details help paint a full picture of the situation. I’m so sorry that happened.\nIf No: Okay, although there was no weapon, this is still a very serious situation and does not change the magnitude of the incident.")
+        if driver_weapon.strip():
+            script_block("If Yes: Okay, [repeat type of weapon or means of force]. That’s very serious and the details help paint a full picture of the situation. I’m so sorry that happened.")
+        else:
+            script_block("If No: Okay, although there was no weapon, this is still a very serious situation and does not change the magnitude of the incident.")
 
-        client_weapon = st.radio("51. Were you carrying a weapon at the time of the assault? If yes, DQ. (Personal defense tools like pepper spray/mace may not be a weapon)", ["No","Yes"], horizontal=True)
-        script_block("If No: Okay, you did not have a weapon with you. That’s all we need on that part — thank you for confirming.\nIf Yes: Okay, thank you for that. And I appreciate your honesty. But based upon the current guidelines, the law firm may not be accepting cases where the victim had a weapon.")
+        client_weapon = yesno(
+            "51. Were you carrying a weapon at the time of the assault? If yes, DQ. (Personal defense tools like pepper spray/mace may not be a weapon)",
+            key="q51",
+            script_yes="If Yes: Okay, thank you for that. And I appreciate your honesty. But based upon the current guidelines, the law firm may not be accepting cases where the victim had a weapon.",
+            script_no="If No: Okay, you did not have a weapon with you. That’s all we need on that part — thank you for confirming."
+        )
 
-        # 52–61 Reporting & Treatment with EXACT scripts
+        # REPORTING & TREATMENT (52–61) dynamic
         st.markdown("---")
         st.subheader("REPORTING & TREATMENT DETAILS")
 
-        has_receipt = st.radio("52. Are you able to reproduce the Rideshare Receipt t to show proof of the ride? (If not, DQ)", ["Yes","No"], horizontal=True)
-        script_block("If Yes: Okay, that’s great you can get the receipt for the ride. That is one of the most important pieces of proof we need that will link your rideshare trip to the incident.\nIf No: Okay, so you cannot check it in your email or on the app? That is one of the most important pieces of proof we need that will link your rideshare trip to the incident. [Refer the claimant to instructions on obtaining the receipt through email or the app.]")
+        has_receipt = yesno(
+            "52. Are you able to reproduce the Rideshare Receipt t to show proof of the ride? (If not, DQ)",
+            key="q52",
+            script_yes="Okay, that’s great you can get the receipt for the ride. That is one of the most important pieces of proof we need that will link your rideshare trip to the incident.",
+            script_no="Okay, so you cannot check it in your email or on the app? That is one of the most important pieces of proof we need that will link your rideshare trip to the incident. [Refer the claimant to instructions on obtaining the receipt through email or the app.]"
+        )
 
         reported_channels = st.multiselect(
             "53. Did you report the incident to anyone, like the Rideshare Company, Police, Therapist, Physician, or Friend or Family Member?",
             ["Rideshare Company","Physician","Friend or Family Member","Therapist","Police Department","NO (DQ, UNLESS TIER 1 OR MINOR)"]
         )
-        script_block("If Reported: Okay, that’s good that you reported it to [repeat answer] — thank you. That helps show you took steps to get help, and that can support your case. It takes a lot of strength.\nIf Not Reported: Okay, so you didn’t tell anyone that might be able to corroborate your story. That can make it difficult to pursue. Let me speak with my supervisor, but based upon the guidelines, the law firm may not be accepting cases where the victim did not report it to anyone.")
+        if reported_channels:
+            script_block("If Reported: Okay, that’s good that you reported it to [repeat answer] — thank you. That helps show you took steps to get help, and that can support your case. It takes a lot of strength.")
+        else:
+            script_block("If Not Reported: Okay, so you didn’t tell anyone that might be able to corroborate your story. That can make it difficult to pursue. Let me speak with my supervisor, but based upon the guidelines, the law firm may not be accepting cases where the victim did not report it to anyone.")
 
         rs_submit_how = st.text_input("54. If submitted to Rideshare:  How did you submit the report to Uber or Lyft?")
-        script_block("Agent Response: Okay, so you submitted it through [email/app]. That’s helpful — thank you for sharing that. Some survivors have used the app, and others reached out by email, so either is totally fine.")
+        if rs_submit_how.strip():
+            script_block("Agent Response: Okay, so you submitted it through [email/app]. That’s helpful — thank you for sharing that. Some survivors have used the app, and others reached out by email, so either is totally fine.")
 
-        willing_to_report = st.radio("55. If not submitted to Rideshare via app or email: If the law firm feels that it is best that you report the incident to Uber or Lyft via email or the app, would you be willing to do so?", ["Yes","No","Unsure"], horizontal=True)
-        script_block("If Yes: Okay, so you'd be willing to report the incident if the law firm recommends it — thank you for being open to that. I'm sure they will provide guidance. It shows strength, and it could really help support your case.\nIf No or Unsure: Okay, so you're not comfortable reporting it through the app or email right now — I completely understand. If the law firm thinks it's important later on, they'll walk you through what to do step by step. You're not alone in this.")
+        willing_to_report = pick(
+            "55. If not submitted to Rideshare via app or email: If the law firm feels that it is best that you report the incident to Uber or Lyft via email or the app, would you be willing to do so?",
+            ["Yes","No","Unsure"], key="q55", horizontal=True,
+            scripts_by_value={
+                "Yes":"If Yes: Okay, so you'd be willing to report the incident if the law firm recommends it — thank you for being open to that. I'm sure they will provide guidance. It shows strength, and it could really help support your case.",
+                "No":"If No: Okay, so you're not comfortable reporting it through the app or email right now — I completely understand. If the law firm thinks it's important later on, they'll walk you through what to do step by step. You're not alone in this.",
+                "Unsure":"If No or Unsure: Okay, so you're not comfortable reporting it through the app or email right now — I completely understand. If the law firm thinks it's important later on, they'll walk you through what to do step by step. You're not alone in this."
+            }
+        )
 
-        rs_received_response = st.radio("56. Did you receive a response from Uber or Lyft?", ["No","Yes"], horizontal=True)
-        script_block("Agent Response: Got it — so they [did/did not] respond. That can be really frustrating, especially when you're expecting someone to acknowledge what happened.")
+        rs_received_response = yesno(
+            "56. Did you receive a response from Uber or Lyft?",
+            key="q56",
+            script_yes="Agent Response: Got it — so they did respond. Please forward any emails or app messages you received.",
+            script_no="Agent Response: Got it — so they did not respond. That can be really frustrating, especially when you're expecting someone to acknowledge what happened."
+        )
 
         report_contact_info = st.text_area("57. Contact information for the person to whom incident was reported (Name, Relationship, Address, Phone, Date Reported)")
-        script_block("Agent Response: Okay, you reported it to [repeat answer]. That’s very helpful — we’ll make sure it’s properly noted.")
+        if report_contact_info.strip():
+            script_block("Agent Response: Okay, you reported it to [repeat answer]. That’s very helpful — we’ll make sure it’s properly noted.")
 
+        # IF CALLED UBER/LYFT (58–61)
         st.markdown("**IF PC CALLED UBER OR LYFT**")
         st.caption("A lot of survivors have tried different ways to get in touch with Uber. Sometimes it’s confusing because the options aren’t always clear — so you’re definitely not alone in that.")
 
         where_found_number = st.text_input("58. Do you remember where you found the phone number you called?")
-        script_block('Agents Response: “Thanks for letting me know. A lot of people try calling through numbers they find online or in emails. You said you found it [repeat source: online/in an old email/etc.] — that’s helpful.”')
+        if where_found_number.strip():
+            script_block('Agents Response: “Thanks for letting me know. A lot of people try calling through numbers they find online or in emails. You said you found it [repeat source: online/in an old email/etc.] — that’s helpful.”')
 
-        got_case_number = st.radio("59. Did you receive any kind of confirmation or case number from that call?", ["No","Yes"], horizontal=True)
-        script_block('Agents Response: “Got it. That helps us track if Uber created an internal file for your report.”')
+        got_case_number = yesno(
+            "59. Did you receive any kind of confirmation or case number from that call?",
+            key="q59",
+            script_yes='Agents Response: “Got it. That helps us track if Uber created an internal file for your report.”',
+            script_no='Agents Response: “Understood. Many callers don’t receive one—We’ll document that.”'
+        )
 
         who_answered = st.text_input("60. When you made the call, did someone say they were with Uber or Lyft, or just take down your information?")
-        script_block('Agents Response: “Okay, so they answered — and you said they [repeat answer]?” “That’s helpful. We’ve heard similar things from others who weren’t quite sure who they spoke with.”')
+        if who_answered.strip():
+            script_block('Agents Response: “Okay, so they answered — and you said they [repeat answer]?” “That’s helpful. We’ve heard similar things from others who weren’t quite sure who they spoke with.”')
 
         follow_up_after_call = st.text_area("61. Did you receive any follow-up after the call — like an email or app message? Or did they give you any instructions, like emailing, going to the app, or waiting for a follow-up?")
-        script_block('If asked to email or use the app:  Thank you for walking me through that. You mentioned they told you to [repeat answer], and that’s something we hear often. A lot of survivors say they didn’t get much clarity — or were told to start over — so you’re not alone in that.”\nIf no follow-up was received:  Got it. You said you didn’t hear anything back — and that’s totally okay. A lot of survivors have shared the same experience, where they reported something and never received any kind of follow-up."')
+        if follow_up_after_call.strip():
+            script_block('If asked to email or use the app:  Thank you for walking me through that. You mentioned they told you to [repeat answer], and that’s something we hear often. A lot of survivors say they didn’t get much clarity — or were told to start over — so you’re not alone in that.”')
+        else:
+            script_block('If no follow-up was received:  Got it. You said you didn’t hear anything back — and that’s totally okay. A lot of survivors have shared the same experience, where they reported something and never received any kind of follow-up."')
 
-        # 62–68 Medical Treatment Details
+        # MEDICAL (62–68)
         st.markdown("---")
         st.subheader("MEDICAL TREATMENT DETAILS")
         forms_signed_for_records = st.text_input("62. Have you ever signed any forms for anyone to get your medical records for this matter? (If so, who?)")
-        med_treated = st.radio("63. Did you receive medical treatment for physical injuries sustained during the assault?", ["Yes","No"], horizontal=True)
+        med_treated = pick("63. Did you receive medical treatment for physical injuries sustained during the assault?", ["Yes","No"], key="q63", horizontal=True)
         med_treatment_desc = st.text_area("64. Please describe your medical treatment:")
         med_doctor = st.text_input("65. Doctor who diagnosed you:")
         med_facility = st.text_input("66. Hospital/Facility where the diagnosis was done:")
         med_address = st.text_input("67. Hospital/Facility/Doctor's Address:")
         med_phone = st.text_input("68. Hospital/Facility/Doctor's Phone Number:", placeholder="+1 (###) ###-####")
 
-        # 69–77 Mental Health Treatment Details 1
+        # MH1 (69–77)
         st.markdown("---")
         st.subheader("MENTAL HEALTH TREATMENT DETAILS 1")
-        mh1_yes = st.radio("69. Have you received any mental health treatment related to your assault?", ["Yes","No"], horizontal=True)
+        mh1_yes = pick("69. Have you received any mental health treatment related to your assault?", ["Yes","No"], key="q69", horizontal=True)
         mh1_desc = st.text_area("70. Please describe your mental health treatment so far (generally):")
         mh1_doctor = st.text_input("71. Name of the Doctor who treated you:")
         mh1_hospital = st.text_input("72. Hospital where you received treatment:")
@@ -584,10 +658,10 @@ def render_wagstaff_questions():
         mh1_diagnosis = st.text_input("76. Diagnosed Ailment / Diagnosis Date(s):")
         mh1_treatment = st.text_area("77. Treatment Type / Treatment Date(s): (Describe the treatment that you received in detail)")
 
-        # 78–86 Mental Health Treatment Details 2
+        # MH2 (78–86)
         st.markdown("---")
         st.subheader("MENTAL HEALTH TREATMENT DETAILS 2")
-        mh2_yes = st.radio("78. Have you received any mental health treatment related to your assault?", ["Yes","No"], horizontal=True)
+        mh2_yes = pick("78. Have you received any mental health treatment related to your assault?", ["Yes","No"], key="q78", horizontal=True)
         mh2_desc = st.text_area("79. Please describe your mental health treatment so far (generally):")
         mh2_doctor = st.text_input("80. Name of the Doctor who treated you:")
         mh2_hospital = st.text_input("81. Hospital where you received treatment:")
@@ -597,7 +671,7 @@ def render_wagstaff_questions():
         mh2_diagnosis = st.text_input("85. Diagnosed Ailment / Diagnosis Datae(s):")
         mh2_treatment = st.text_area("86. Treatment Type / Treatment Date(s): (Describe the treatment that you received in detail).")
 
-        # 87–94 Additional Providers
+        # ADDITIONAL PROVIDERS (87–94)
         st.markdown("---")
         st.subheader("ADDITIONAL RELEVANT MEDICAL OR MENTAL HEALTH PROVIDERS")
         am_name = st.text_input("87. Doctor/ Facility Name:")
@@ -609,7 +683,7 @@ def render_wagstaff_questions():
         am_treatment = st.text_input("93. Treatment Type / Treatment Date(s):")
         am_comments = st.text_area("94. Comments:")
 
-        # 95–103 Pharmacy
+        # PHARMACY (95–103)
         st.markdown("---")
         st.subheader("PHARMACY FOR MEDICATIONS")
         ph_name = st.text_input("95. Name:")
@@ -621,14 +695,15 @@ def render_wagstaff_questions():
         ph_comments = st.text_area("101. Comments:")
         ph_med3 = st.text_input("102. Ailment / Medication / Date Prescribed:")
 
-        affirm = st.radio("103. [Having just confirmed all the answers you have provided in response to all the questions] Do you hereby affirm that the information submitted by you is true and correct in all respects, including whether you've ever signed up with another law firm?", ["Yes","No"], horizontal=True)
+        affirm = pick("103. Do you hereby affirm the information is true and correct (incl. prior firm signup)?", ["Yes","No"], key="q103", horizontal=True)
 
-        # 104–105 Technical
+        # TECHNICAL (104–105)
         st.markdown("---")
         st.subheader("INTAKE ENDS HERE")
         ip_addr = st.text_input("104. IP Address")
         jornaya = st.text_area("105. Trusted Form/Jornaya Data")
 
+        # SAVE
         submitted = st.form_submit_button("Save Wagstaff Answers")
         if submitted:
             st.session_state.answers_wag = {
@@ -663,7 +738,6 @@ def render_wagstaff_questions():
                 "52_has_receipt": has_receipt, "53_reported_channels": reported_channels,
                 "54_rs_submit_how": rs_submit_how, "55_willing_to_report": willing_to_report,
                 "56_rs_received_response": rs_received_response, "57_report_contact_info": report_contact_info,
-                # 58–61 call branch
                 "58_where_found_number": where_found_number, "59_got_case_number": got_case_number,
                 "60_who_answered": who_answered, "61_follow_up_after_call": follow_up_after_call,
                 # 62–68 Medical
@@ -690,6 +764,7 @@ def render_wagstaff_questions():
             }
             st.success("Wagstaff answers saved. Use Export below to download.")
 
+    # footer actions
     colA, colB, colC = st.columns([1,1,2])
     with colA:
         if st.button("Back to Intake"):
@@ -703,7 +778,7 @@ def render_wagstaff_questions():
             csv_bytes = df.to_csv(index=False).encode("utf-8")
             st.download_button("Download wagstaff_followup.csv", data=csv_bytes, file_name="wagstaff_followup.csv", mime="text/csv", key="dl_wag_csv_btn")
     with colC:
-        st.caption("All question texts and scripts are included exactly as supplied (38–61 and others).")
+        st.caption("All Yes/No questions show the matching script based on the current selection.")
 
 # =========================
 # TRITEN PLACEHOLDER (unchanged until you provide Triten scripts)
