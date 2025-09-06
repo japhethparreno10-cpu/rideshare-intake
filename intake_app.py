@@ -286,10 +286,15 @@ def render_intake_and_decision():
     script_block("Agent Response: Got it — so they [did/did not] respond. That can be really frustrating, especially when you're expecting someone to acknowledge what happened.")
 
     # Q10 Felony/criminal history – reuse existing toggle via session state
-    st.caption("10. So the law firm can be prepared for any character issues, do you have any felonies or criminal history?")
-    felony_current = st.session_state.get("felony_record", False)
-    if felony_current:
-    script_block("If Yes: We ask this to ensure there are no legal issues that could impact or weaken your case. It helps us prepare in case the other side tries to use your past against you. This is a standard part of handling your case and doesn’t reflect on your character.")
+st.caption("10. So the law firm can be prepared for any character issues, do you have any felonies or criminal history?")
+felony_current = st.session_state.get("felony_record", False)
+if felony_current:
+    script_block(
+        "If Yes: We ask this to ensure there are no legal issues that could impact or weaken your case. "
+        "It helps us prepare in case the other side tries to use your past against you. "
+        "This is a standard part of handling your case and doesn’t reflect on your character."
+    )
+
 
 
     st.subheader("Acts (check what applies)")
@@ -1328,5 +1333,6 @@ elif st.session_state.step == "firm_questions":
         render_triten_questions()
     else:
         st.warning("No firm selected. Returning to intake."); st.session_state.step="intake"; st.rerun()
+
 
 
