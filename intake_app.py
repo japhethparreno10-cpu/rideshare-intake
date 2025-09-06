@@ -294,9 +294,6 @@ if felony_current:
         "It helps us prepare in case the other side tries to use your past against you. "
         "This is a standard part of handling your case and doesn’t reflect on your character."
     )
-
-
-
     st.subheader("Acts (check what applies)")
     c1, c2 = st.columns(2)
     with c1:
@@ -1333,6 +1330,7 @@ elif st.session_state.step == "firm_questions":
         render_triten_questions()
     else:
         st.warning("No firm selected. Returning to intake."); st.session_state.step="intake"; st.rerun()
+
 
 
 
