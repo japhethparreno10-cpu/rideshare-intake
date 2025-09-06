@@ -6,7 +6,7 @@ from dateutil.relativedelta import relativedelta
 # =========================
 # PAGE SETUP & STYLES
 # =========================
-st.set_page_config(page_title="Rideshare Intake Qualifier + Coach", layout="wide")
+st.set_page_config(page_title="Rideshare Intake Qualifier · Coach (toggles OFF by default)", layout="wide")
 
 st.markdown("""
 <style>
@@ -53,13 +53,6 @@ WD_SOL = {
     "South Carolina":3,"South Dakota":3,"Tennessee":1,"Texas":2,"Utah":2,"Vermont":2,"Virginia":2,"Washington":3,
     "West Virginia":2,"Wisconsin":3,"Wyoming":2
 }
-SA_EXT = {
-    "California":{"rape_penetration":"No SOL","other_touching":"No SOL"},
-    "New York":{"rape_penetration":"10 years","other_touching":"10 years"},
-    "Texas":{"rape_penetration":"5 years","other_touching":"2 years"},
-    "Illinois":{"rape_penetration":"No SOL","other_touching":"2 years"},
-    "Connecticut":{"rape_penetration":"No SOL","other_touching":"2 years"},
-}
 STATE_OPTIONS = [
     "Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware","Florida","Georgia",
     "Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland",
@@ -72,7 +65,7 @@ STATE_ALIAS = {"Washington DC": "D.C.", "District of Columbia": "D.C."}
 STATES = sorted(set(list(TORT_SOL.keys()) + list(WD_SOL.keys()) + ["D.C."]))
 
 # =========================
-# HELPERS (script rendering)
+# HELPERS
 # =========================
 def script_block(text: str):
     if not text: return
@@ -100,33 +93,9 @@ def tier_and_aggravators(data):
     return label, (base in ("Tier 1","Tier 2") and len(aggr) > 0)
 
 # =========================
-# HEADER + REFERENCE
+# HEADER
 # =========================
 st.title("Rideshare Intake Qualifier · with Agent Coach")
-
-with st.expander("Injury & Sexual Assault: Tiers and State SOL Extensions (Reference)"):
-    st.markdown("""
-**Tier 1**  
-- Rape or sodomy  
-- Forcing someone to touch themselves  
-- Forcing someone to perform oral sex  
-
-**Tier 2** *(must include touching/kissing category)*  
-- Touching/kissing mouth/private parts without consent  
-- Indecent exposure  
-- Masturbation in front of someone without their consent  
-
-**Tier 3 (Aggravators; requires Tier 1 or Tier 2)**  
-- Kidnapping (off intended route) with clear sexual/extreme physical threats  
-- False imprisonment with clear sexual/extreme physical threats
-
-**State Sexual Assault SOL Extensions (quick look)**  
-- CA: No SOL for penetration/touching  
-- NY: 10 years penetration/touching  
-- TX: 5 years penetration / 2 years other  
-- IL: No SOL penetration / 2 years other  
-- CT: No SOL penetration / 2 years other
-""")
 
 # =========================
 # INTAKE + COACH
@@ -134,14 +103,13 @@ with st.expander("Injury & Sexual Assault: Tiers and State SOL Extensions (Refer
 def render_intake_and_decision():
     st.header("Intake")
 
-    # Intro / rapport scripting (always visible)
+    # Intro / rapport
     intro_c1, intro_c2 = st.columns([1,1])
     with intro_c1:
         client = st.text_input("Client Name", placeholder="e.g., Jane Doe")
     with intro_c2:
         company = st.selectbox("Rideshare company", ["Uber", "Lyft"])
 
-    # Intro script reacts to name
     intro_text = f"""
 Thank you for calling about the rideshare assault claim. Can I have your full name, please, so we can help you better?
 
@@ -160,22 +128,25 @@ In order for us to proceed, the law firm requires two things: **the email copy o
     with top3[2]:
         incident_date = st.date_input("Incident Date", value=TODAY.date())
 
-    # First-level qualification toggles
+    # First-level qualification toggles — all OFF (grey) + scripts shown when OFF
     row2 = st.columns(6)
     with row2[0]:
-        female_rider = st.toggle("Female rider", value=True)
+        female_rider = st.toggle("Female rider", value=False)
+        if not female_rider:
+            script_block("Confirm rider identity as applicable. This helps align with firm screening rules.")
     with row2[1]:
-        receipt = st.toggle("Receipt provided (email/PDF/app)", value=True)
+        receipt = st.toggle("Receipt provided (email/PDF/app)", value=False)
+        # When OFF, show the how-to + email
         if not receipt:
-            st.markdown("**Ask:** Do you have an email receipt for the ride and a screenshot?")
-            st.markdown("<div class='callout'><b>Text to send:</b><br><span class='copy'>Forward your receipt to <b>keren@advocaterightscenter.com</b> by selecting the ride in Ride History and choosing “Resend Receipt.”\n(Msg Rates Apply. Txt STOP to cancel/HELP for help)</span></div>", unsafe_allow_html=True)
-            st.markdown("<div class='copy'>Forward your receipt to <b>keren@advocaterightscenter.com</b>\n(Msg Rates Apply. Txt STOP to cancel/HELP for help)</div>", unsafe_allow_html=True)
+            st.markdown("**Do you have an email receipt for the ride and a screenshot?**")
+            st.markdown("<div class='callout'><b>Text to send:</b><br><span class='copy'>Forward your receipt to <b>jay@advocaterightscenter.com</b> by selecting the ride in Ride History and choosing “Resend Receipt.”\n(Msg Rates Apply. Txt STOP to cancel/HELP for help)</span></div>", unsafe_allow_html=True)
+            st.markdown("<div class='copy'>Forward your receipt to <b>jay@advocaterightscenter.com</b>\n(Msg Rates Apply. Txt STOP to cancel/HELP for help)</div>", unsafe_allow_html=True)
             if company == "Uber":
-                st.markdown("<div class='script'><b>Uber steps:</b> Activity ➜ select the correct ride ➜ receipt icon above pickup address ➜ Resend email receipt.</div>", unsafe_allow_html=True)
+                script_block("<b>Uber steps:</b> Activity ➜ select the correct ride ➜ receipt icon above pickup address ➜ Resend email receipt.")
             else:
-                st.markdown("<div class='script'><b>Lyft steps:</b> Ride history ➜ select correct ride ➜ Receipt icon ➜ Resend email receipt.</div>", unsafe_allow_html=True)
+                script_block("<b>Lyft steps:</b> Ride history ➜ select correct ride ➜ Receipt icon ➜ Resend email receipt.")
     with row2[2]:
-        gov_id = st.toggle("ID provided", value=True)
+        gov_id = st.toggle("ID provided", value=False)
         if not gov_id:
             script_block("""We need a government ID to ensure any settlement is paid to the right person. We will **not** ask for banking details at this stage.
 
@@ -183,40 +154,46 @@ In order for us to proceed, the law firm requires two things: **the email copy o
 • Verification prevents impersonation and false claims.  
 • Medical records: ID allows HIPAA-compliant requests.  
 • Settlement accuracy: funds go to the correct person.""")
-
-            st.markdown("<div class='callout'><b>Text to send:</b> “For identity verification, please upload your ID here: [your link].”</div>", unsafe_allow_html=True)
-
+            st.markdown("<div class='callout'><b>Text to send:</b> “For identity verification, please upload your ID here: [secure link].”</div>", unsafe_allow_html=True)
     with row2[3]:
-        inside_near = st.toggle("Incident inside/just outside/started near car", value=True)
-        if inside_near:
-            script_block("Thanks — confirming it happened while using the service helps establish rideshare responsibility for safe transport.")
+        inside_near = st.toggle("Incident inside/just outside/started near car", value=False)
+        # Your exact script: show the question when OFF; show the “If Yes” line when ON
+        if not inside_near:
+            script_block("Did the incident occur while utilizing the Rideshare service, either inside or just outside the vehicle?")
+        else:
+            script_block("If Yes: Okay. So, it happened [repeat where happened]. Thank you. Knowing where it happened while using the Rideshare helps confirm that it’s within the scope of the Rideshare’s responsibility, which includes providing a safe means of transportation.")
     with row2[4]:
         has_atty = st.toggle("Already has an attorney", value=False)
-        if has_atty:
-            script_block("Thank you for letting me know. Because another attorney already represents you on this claim, we can’t proceed with intake.")
-        else:
-            st.caption("If ‘No’, use this probe before firm contact:")
+        if not has_atty:
             script_block("Before the law firm reaches out, could you tell me what happened in your own words? This space is confidential.")
+        else:
+            script_block("Thanks for letting me know. Because another attorney already represents you on this claim, we can’t proceed with intake.")
     with row2[5]:
-        # Driver weapon (what happened in the car) vs client carrying weapon (next row)
+        # Driver weapon selector (not a toggle)
         weapon = st.selectbox("Driver weapon/force used?", ["No","Non-lethal defensive (e.g., pepper spray)","Yes"])
         if weapon == "Yes":
             script_block("Understood. That’s very serious. Please describe what was threatened or used (e.g., gun, knife, choking).")
 
-    # Additional disqualifiers / probes row
+    # Additional toggles — OFF by default + probe scripts visible when OFF
     row3 = st.columns(3)
     with row3[0]:
         verbal_only = st.toggle("Verbal abuse only (no sexual contact/acts)", value=False)
-        if verbal_only:
+        if not verbal_only:
+            script_block("Probe neutrally for any physical acts; if none, keep this OFF.")
+        else:
             script_block("Thank you for explaining. We’ll document everything carefully, even when it was not physical.")
     with row3[1]:
         attempt_only = st.toggle("Attempt/minor contact only", value=False)
-        if attempt_only:
+        if not attempt_only:
+            script_block("If there was more than an attempt/minor contact, keep this OFF and capture details below.")
+        else:
             script_block("Thanks for clarifying there was an attempt or minor contact. I’m sorry you went through that.")
     with row3[2]:
         client_weapon = st.toggle("Client carrying a weapon?", value=False)
-        if client_weapon:
-            script_block("Thanks for your honesty. Some firms won’t accept cases where the victim had a weapon; we’ll make sure the team evaluates this carefully.")
+        if not client_weapon:
+            script_block("Were you carrying a weapon at the time? (Personal defense tools like pepper spray/mace may not be a weapon.)")
+        else:
+            script_block("Thank you for your honesty. Some firms won’t accept cases where the victim had a weapon; we’ll note for attorney review.")
 
     # Acts (map to Tier)
     st.subheader("Acts (check what applies)")
@@ -231,11 +208,12 @@ In order for us to proceed, the law firm requires two things: **the email copy o
         kidnap = st.checkbox("Kidnapping Off-Route w/ Threats")
         imprison = st.checkbox("False Imprisonment w/ Threats")
         felony = st.toggle("Client has felony record", value=False)
-        if felony:
-            script_block("""Also, do you have any felony records? We ask this to ensure there are no legal issues that could impact or weaken your case. 
-This helps us prepare if the other side tries to use your past against you. It’s a standard part of handling your case and doesn’t reflect on your character.""")
+        if not felony:
+            script_block("Also, do you have any felony records? We ask to anticipate any issues the defense might raise. This doesn’t reflect on your character.")
+        else:
+            script_block("Thanks for sharing. We’ll note this so the firm can prepare for any defense tactics.")
 
-    # Narrative probes (always available)
+    # Narrative probes
     st.subheader("Narrative (probing prompts)")
     narr = st.text_area("Can you tell me what happened during your ride? (free narrative)")
     qcol1, qcol2 = st.columns(2)
@@ -244,8 +222,6 @@ This helps us prepare if the other side tries to use your past against you. It�
         seat = st.selectbox("Where were you seated?", ["—","Front","Back","Other"])
     with qcol2:
         exit_how = st.text_input("How did you exit the car?")
-        company_confirm = company  # echoed in script
-
     if narr.strip():
         script_block('“That must have been terrifying. I’m really sorry you experienced this. Let’s confirm some details to build your case.”')
 
@@ -281,7 +257,7 @@ This helps us prepare if the other side tries to use your past against you. It�
         family_report_time = fr_c2.time_input("Time reported to Family/Friends", value=incident_time)
         family_report_dt = datetime.combine(family_report_date, family_report_time)
 
-    # Wrongful death (kept minimal)
+    # Wrongful death
     st.subheader("Wrongful Death")
     wd_col1, wd_col2 = st.columns([1,2])
     with wd_col1:
@@ -377,13 +353,7 @@ This helps us prepare if the other side tries to use your past against you. It�
         st.markdown(f"<div class='badge-note'>Triten</div>", unsafe_allow_html=True)
         badge(triten_ok, "Eligible" if triten_ok else "Not Eligible")
 
-    # Company policy (reference text only)
-    if company == "Uber":
-        st.info("Company rule: Uber → Wagstaff and Triten are options (priority often Triten if both eligible).")
-    else:
-        st.info("Company rule: Lyft → Triten only.")
-
-    # NOTES (reasons)
+    # NOTES
     st.subheader("Eligibility Notes")
     st.markdown("### Wagstaff")
     if wag_ok:
@@ -424,89 +394,6 @@ This helps us prepare if the other side tries to use your past against you. It�
     }
     st.dataframe(pd.DataFrame([decision]), use_container_width=True, height=320)
 
-    # ============== LIVE COACH PANELS (logic + emotion + hire + who we are) ==============
-    st.header("Agent Coach · Talking Points")
-
-    with st.expander("Educate for Logic (use when survivor seeks context)"):
-        st.markdown("""
-Survivors are coming forward about rideshares because Uber and Lyft have been found to improperly screen drivers.  
-In 2018, **~3,000** sexual assaults were reported **that year alone**; including 2017 brings the total near **6,000**.  
-Many incidents go unreported, so coming forward can help you and others get justice.
-""")
-        st.markdown("""
-*Optional depth (use only if needed):* Since 2014, Uber knew dangerous drivers were on the platform and assaults were happening.  
-They introduced a **$1 ‘Safe Rides Fee’** to pay for safety features, but much of it became revenue (hundreds of millions) without fixing core safety gaps. The fee was later renamed to **“booking fee.”**
-""")
-
-    with st.expander("Education for Emotion (validation + purpose)"):
-        st.markdown("""
-I’m sorry you’re going through this. I know this isn’t about the money, and we can’t change the pain you’ve endured.  
-However, pursuing a settlement can provide closure and help protect others.
-""")
-        st.markdown("""
-*Optional (if helpful):* Coming forward sends a message that rideshare companies cannot prioritize profits over safety.  
-They failed to warn about known risks, which took away your right to make an informed decision.
-""")
-
-    with st.expander("Discuss & Summarize (when Tier 1/2 likely)"):
-        st.markdown("""
-It sounds like you may have a valid case to pursue a settlement because of what happened.  
-The process is straightforward and not stressful: you **hire a law firm on contingency** — no upfront payments and nothing owed unless they win.
-""")
-
-    with st.expander("Hire a Law Firm (who we are + options)"):
-        st.markdown("""**Wagstaff Law Firm** — Super Lawyers on staff (top ~5%), national leadership on corporate negligence, nine Plaintiff Steering Committees; holding Uber/Lyft accountable.""")
-        st.markdown("""**Chaffin Luhana (Triten channel)** — Super Lawyers; 1,200+ five-star reviews; $1B+ recovered; focus on sexual assault nationwide; can connect clients with support such as **RAINN**.""")
-        st.markdown("""**Estey & Bomberger** — Trial firm; sexual assault litigation; national reach.""")
-
-    with st.expander("Settlements Timeframe (high-level)"):
-        st.markdown("""
-After initial motions and discovery, **four one-month Bellwether Test Trials** are scheduled focusing on different assault types.  
-Their outcomes guide settlement ranges, reducing the need for you to retell your story. Your settlement will align with your experience.
-""")
-
-    with st.expander("Asking SSN (use only when green-lit by firm)"):
-        st.markdown("""
-We have one more item to protect your benefits and identity so any settlement goes to the right person.  
-**May we collect your Social Security Number?**  
-This prevents impersonation or relatives falsely claiming funds and avoids financial issues. We will not request banking details until a settlement is confirmed.
-""")
-        ssn_collect = st.toggle("Collected SSN now? (store securely per firm policy)", value=False)
-
-    with st.expander("Asking ID (if not yet provided)"):
-        st.markdown("""
-**Text to send:**  
-For identity verification please upload your ID by clicking here: **[your secure upload link]**.
-
-**Why this matters**  
-1. Verification prevents impersonation and false claims.  
-2. Medical records can be requested under HIPAA.  
-3. Ensures settlement funds go to the correct person (no banking details requested now).
-""")
-
-    with st.expander("Who We Are / Contact Cards (read as needed)"):
-        st.markdown("""
-**Triten / Chaffin Luhana LLP Injury Lawyers**  
-615 Iron City Dr, Pittsburgh, PA 15205 · (412) 345-8144 · chaffinluhana.com
-""")
-        st.markdown("""
-**Estey & Bomberger, LLP**  
-2869 India St, San Diego, CA 92103 · (800) 260-7197 · ebtrialattorneys.com
-""")
-        st.markdown("""
-**Wagstaff Law Firm**  
-940 Lincoln St, Denver, CO 80203 · wagstafflawfirm.com
-""")
-        st.markdown("""
-*Follow-up expectation:* Legal assistants will call within ~5 days to confirm next steps (e.g., Lorenia 213-347-9246 or Kim 213-770-1340).
-""")
-
-    with st.expander("Commitment & Keep Lines Open (closing)"):
-        st.markdown("""
-Thank you for doing this. I know you have the courage to continue and help women who can’t speak up.  
-The attorneys will call to confirm details and your decision to move forward. All information remains confidential — keep your phone available for that call.
-""")
-
     # EXPORT
     st.subheader("Export")
     export_df = pd.DataFrame([state_data]).assign(**decision)
@@ -514,8 +401,6 @@ The attorneys will call to confirm details and your decision to move forward. Al
                        data=export_df.to_csv(index=False).encode("utf-8"),
                        file_name="intake_decision_coached.csv",
                        mime="text/csv")
-
-    st.caption("Coach mode surfaces the right language at the right time. Nothing is sent automatically; it’s all on-screen guidance you can copy verbatim.")
 
 # =========================
 # APP ENTRY
