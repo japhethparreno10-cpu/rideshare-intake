@@ -51,8 +51,7 @@ STATE_ALIAS = {"Washington DC": "D.C.", "District of Columbia": "D.C."}
 STATES = sorted(set(list(TORT_SOL.keys()) + ["D.C."]))
 
 # =========================
-# SEXUAL-ASSAULT EXTENSIONS (your reference)
-# years=None means "No SOL"
+# SEXUAL-ASSAULT EXTENSIONS (years=None means "No SOL")
 # =========================
 SA_EXT = {
     "California":   {"penetration": None, "other": None,
@@ -81,6 +80,11 @@ def badge(ok: bool, label: str):
 def fmt_date(dt): return dt.strftime("%Y-%m-%d") if dt else "—"
 def fmt_dt(dt): return dt.strftime("%Y-%m-%d %H:%M") if dt else "—"
 
+def join_list(values, dash_if_empty=True):
+    if not values:
+        return "—" if dash_if_empty else ""
+    return ", ".join([str(v) for v in values])
+
 def tier_and_aggravators(flags):
     t1 = bool(flags.get("Rape/Penetration") or flags.get("Forced Oral/Forced Touching"))
     t2 = bool(flags.get("Touching/Kissing w/o Consent") or flags.get("Indecent Exposure") or flags.get("Masturbation Observed"))
@@ -93,10 +97,9 @@ def tier_and_aggravators(flags):
     elif t2: base = "Tier 2"
     else: base = "Unclear"
     label = f"{base} (+ Aggravators: {', '.join(aggr)})" if base in ("Tier 1","Tier 2") and aggr else base
-    return label, (base in ("Tier 1","Tier 2") and len(aggr) > 0)
+    return label, aggr
 
 def sa_category(flags):
-    """Decide SOL category: 'penetration', 'other', or None (if no SA selection)."""
     if flags.get("Rape/Penetration") or flags.get("Forced Oral/Forced Touching"):
         return "penetration"
     if flags.get("Touching/Kissing w/o Consent") or flags.get("Indecent Exposure") or flags.get("Masturbation Observed"):
@@ -104,17 +107,11 @@ def sa_category(flags):
     return None
 
 def sol_rule_for(state, category):
-    """
-    Returns (years_or_None, rule_text, used_sa_extension: bool)
-    If category is None or state not in SA_EXT => fall back to general TORT_SOL.
-    """
     if category and state in SA_EXT:
         data = SA_EXT[state]
         years = data[category]
-        # Full state summary (both categories) for diagnostics context:
         summary = data["summary"]
         return years, f"{state}: {summary}", True
-    # General tort SOL fallback
     years = TORT_SOL.get(state)
     return years, f"{state}: General tort SOL = {years} year(s).", False
 
@@ -146,6 +143,16 @@ def render():
 
         st.markdown("**3. Are you able to reproduce the ride share receipt to show proof of the ride? (If not, DQ)**")
         receipt = st.toggle("Receipt provided (email/app/PDF)", value=False, key="q3_receipt_toggle")
+        # NEW: receipt evidence detail
+        receipt_evidence = st.multiselect(
+            "What can you provide as receipt evidence?",
+            ["PDF", "Screenshot of Receipt", "Email", "In-App Receipt (screenshot)", "Other"],
+            key="receipt_evidence"
+        )
+        receipt_evidence_other = st.text_input("If Other, describe", key="receipt_evidence_other")
+        if receipt_evidence_other and "Other" not in receipt_evidence:
+            receipt_evidence.append(f"Other: {receipt_evidence_other.strip()}")
+
         if not receipt:
             st.markdown("<div class='callout'><b>Text to send:</b><br><span class='copy'>Forward your receipt to <b>jay@advocaterightscenter.com</b> by selecting the ride in Ride History and choosing “Resend Receipt.”<br>(Msg Rates Apply. Txt STOP to cancel/HELP for help)</span></div>", unsafe_allow_html=True)
 
@@ -194,9 +201,9 @@ def render():
         st.markdown("**6. What state did this happen?**")
         state = st.selectbox("Incident State", STATES, index=(STATES.index("California") if "California" in STATES else 0), key="q6_state")
 
-        st.text_input("Pick-up location (full address or description)", key="pickup")
-        st.text_input("Drop-off location (full address or description)", key="dropoff")
-        st.text_input("Purpose of ride (optional if obvious from p/u → d/o)", key="purpose")
+        pickup = st.text_input("Pick-up location (full address or description)", key="pickup")
+        dropoff = st.text_input("Drop-off location (full address or description)", key="dropoff")
+        purpose = st.text_input("Purpose of ride (optional if obvious from p/u → d/o)", key="purpose")
 
         st.markdown("**8. If submitted to Rideshare: how did you submit? (email/app/other)**")
         rs_submit_how = st.text_input("email / app / other", key="q8_submit_how")
@@ -240,7 +247,7 @@ def render():
 
     # ========= Calculations =========
     incident_time = st.time_input("Incident Time (for timing rules)", value=time(21,0), key="time_for_calc")
-    used_date = incident_date or TODAY.date()  # safe fallback so UI stays live, but flag in diagnostics if unknown
+    used_date = incident_date or TODAY.date()
     incident_dt = datetime.combine(used_date, incident_time)
 
     act_flags = {
@@ -252,7 +259,7 @@ def render():
         "Kidnapping Off-Route w/ Threats": kidnap,
         "False Imprisonment w/ Threats": imprison
     }
-    tier_label, _ = tier_and_aggravators(act_flags)
+    tier_label, aggr_list = tier_and_aggravators(act_flags)
     base_tier_ok = ("Tier 1" in tier_label) or ("Tier 2" in tier_label)
 
     # SA category & SOL rule
@@ -264,7 +271,7 @@ def render():
     if sol_years is None:
         sol_end = None
         wagstaff_deadline = None
-        wagstaff_time_ok = True  # no SOL => no deadline
+        wagstaff_time_ok = True
     else:
         sol_end = incident_dt + relativedelta(years=+int(sol_years))
         wagstaff_deadline = sol_end - timedelta(days=45)
@@ -343,11 +350,9 @@ def render():
     if has_atty: wag_lines.append("• Already represented by an attorney.")
     wag_lines.extend([f"• {x}" for x in wag_disq])
 
-    # SOL specifics
     if not incident_date:
         wag_lines.append("• Incident date is unknown → SOL timing cannot be verified precisely.")
     if used_sa:
-        # show state rule once, plus pass/fail
         if sol_years is None:
             wag_lines.append(f"• SOL timing: No SOL per sexual-assault extension — {sol_rule_text} → timing OK.")
         else:
@@ -356,7 +361,6 @@ def render():
             else:
                 wag_lines.append(f"• SOL open until {fmt_dt(sol_end)} ({sol_rule_text}).")
     else:
-        # using general tort SOL
         if sol_years is None:
             wag_lines.append(f"• SOL timing: No SOL (unexpected for {state}).")
         else:
@@ -365,17 +369,14 @@ def render():
             else:
                 wag_lines.append(f"• SOL open until {fmt_dt(sol_end)} — general tort rule {sol_years} year(s).")
 
-    # Wagstaff file-by check
     if sol_years is None:
         wag_lines.append("• Wagstaff file-by: not applicable (No SOL).")
     else:
         wag_lines.append(f"• Wagstaff file-by (SOL − 45 days): {fmt_dt(wagstaff_deadline)} → {'OK' if wagstaff_time_ok else 'Not OK'}.")
 
-    # Family-only rule
-    if set(reported_to) == {"Friend or Family Member"}:
-        if family_report_dt:
-            delta_hours = (family_report_dt - incident_dt).total_seconds()/3600.0
-            wag_lines.append(f"• Family/Friends-only report delta: {delta_hours:.1f} hours → {'OK (≤24h)' if within_24h_family_ok else 'Not OK (>24h)'}.")
+    if set(reported_to) == {"Friend or Family Member"} and family_report_dt:
+        delta_hours = (family_report_dt - incident_dt).total_seconds()/3600.0
+        wag_lines.append(f"• Family/Friends-only report delta: {delta_hours:.1f} hours → {'OK (≤24h)' if within_24h_family_ok else 'Not OK (>24h)'}.")
 
     st.markdown("<div class='kv'>" + "\n".join(wag_lines) + "</div>", unsafe_allow_html=True)
 
@@ -386,27 +387,26 @@ def render():
         tri_lines.append("• Tier unclear (needs Tier 1 or Tier 2 acts).")
     else:
         tri_lines.append(f"• Tier = {tier_label}.")
-
     tri_lines.append(f"• Common requirements: female={bool(female_rider)}, receipt={bool(receipt)}, id={bool(gov_id)}, scope={bool(inside_near)}, has_atty={bool(has_atty)}.")
     if earliest_report_date:
         tri_lines.append(f"• Earliest report date = {fmt_date(earliest_report_date)}; incident = {fmt_date(incident_dt.date())}; Δ = {delta_days} day(s) → {'OK (≤14 days)' if triten_report_ok else 'Not OK (>14 days or negative)'}")
     else:
         tri_lines.append("• No earliest report date captured → cannot verify 14-day requirement.")
     tri_lines.extend([f"• {x}" for x in tri_disq])
-
     st.markdown("<div class='kv'>" + "\n".join(tri_lines) + "</div>", unsafe_allow_html=True)
 
     # ========= SUMMARY TABLE =========
     st.subheader("Summary")
-    sol_end_str = fmt_dt(sol_end) if sol_years not in (None, ) and sol_end else ("—" if sol_years is not None else "No SOL")
-    wag_deadline_str = fmt_dt(wagstaff_deadline) if wagstaff_deadline else ("—" if sol_years is not None else "N/A (No SOL)")
+    sol_end_str = ("No SOL" if sol_years is None else (fmt_dt(sol_end) if sol_end else "—"))
+    wag_deadline_str = ("N/A (No SOL)" if sol_years is None else (fmt_dt(wagstaff_deadline) if wagstaff_deadline else "—"))
     report_dates_str = "; ".join([f"{k}: {fmt_date(v)}" for k, v in report_dates.items()]) if report_dates else "—"
     family_dt_str = fmt_dt(family_report_dt) if family_report_dt else "—"
     decision = {
         "Company": company,
-        "Tier (severity-first)": tier_label,
+        "State": state,
+        "Tier": tier_label,
         "SA category for SOL": category or "—",
-        "Used SA extension?": "Yes" if sa_category(act_flags) and (sol_state in SA_EXT) else "No (general tort)",
+        "Using SA extension?": "Yes" if (category and sol_state in SA_EXT) else "No (general tort)",
         "SOL rule applied": sol_rule_text,
         "SOL End (est.)": sol_end_str,
         "Wagstaff file-by (SOL-45d)": wag_deadline_str,
@@ -417,49 +417,114 @@ def render():
     }
     st.dataframe(pd.DataFrame([decision]), use_container_width=True, height=300)
 
-    # ========= DETAILED REPORT (auto-populated) =========
+    # ========= DETAILED REPORT (EVERYTHING POPULATED) =========
     st.subheader("Detailed Report — Elements of Statement of the Case for RIDESHARE")
-    pickup = st.session_state.get("pickup", "")
-    dropoff = st.session_state.get("dropoff", "")
-    purpose = st.session_state.get("purpose", "")
-    brief = categorical_brief(act_flags)
-    elements = f"""1. Date of ride: {fmt_date(incident_date) if incident_date else 'UNKNOWN'}
-2. Name of PC: {client_name or 'UNKNOWN'}
-3. Reserved a ride with: {company}
-4. Pick-up → Drop-off: {pickup or 'UNKNOWN'} → {dropoff or 'UNKNOWN'}
-5. Purpose of ride (if needed): {purpose or '—'}
-7. Brief/categorical description: {brief}
-8. Person/entities PC reported incident: {', '.join(reported_to) if reported_to else '—'}
-"""
+
+    # derive earliest channel(s)
+    earliest_channels = []
+    if earliest_report_date:
+        for k, v in report_dates.items():
+            if v == earliest_report_date:
+                earliest_channels.append(k)
+
+    acts_selected = [k for k, v in act_flags.items() if v and k not in ("Kidnapping Off-Route w/ Threats", "False Imprisonment w/ Threats")]
+    aggr_selected = [k for k in ("Kidnapping Off-Route w/ Threats","False Imprisonment w/ Threats") if act_flags.get(k)]
+
+    line_items = []
+    def add_line(num, text): line_items.append(f"{num}. {text}")
+
+    # Base elements (1–8)
+    add_line(1, f"Date of ride: {fmt_date(incident_date) if incident_date else 'UNKNOWN'}")
+    add_line(2, f"Name of PC: {client_name or 'UNKNOWN'}")
+    add_line(3, f"Reserved a ride with: {company}")
+    add_line(4, f"Pick-up → Drop-off: {pickup or 'UNKNOWN'} → {dropoff or 'UNKNOWN'}")
+    add_line(5, f"Purpose of ride (if needed): {purpose or '—'}")
+    add_line(7, f"Brief/categorical description: {categorical_brief(act_flags)}")
+    add_line(8, f"Person/entities PC reported incident: {join_list(reported_to)}")
+
+    # New items (9+): every captured detail
+    add_line(9,  f"Receipt Provided: {'Yes' if receipt else 'No'}")
+    add_line(10, f"Receipt Evidence: {join_list(receipt_evidence)}")
+    add_line(11, f"How reported to Rideshare (email/app/other): {rs_submit_how or '—'}")
+    add_line(12, f"Company responded?: {'Yes' if rs_received_response else 'No'}")
+    add_line(13, f"Company response detail: {rs_response_detail or '—'}")
+    add_line(14, f"Incident state: {state}")
+    add_line(15, f"Incident time: {incident_time.strftime('%H:%M')}")
+    add_line(16, f"Female rider: {'Yes' if female_rider else 'No'}")
+    add_line(17, f"Government ID provided: {'Yes' if gov_id else 'No'}")
+    add_line(18, f"Scope inside/just outside vehicle: {'Confirmed' if inside_near else 'Not confirmed'}")
+    add_line(19, f"Already has attorney: {'Yes' if has_atty else 'No'}")
+    add_line(20, f"Felony history: {'Yes' if felony else 'No'}")
+    add_line(21, f"Driver weapon use/threat: {driver_weapon}")
+    add_line(22, f"Client carrying weapon: {'Yes' if client_weapon else 'No'}")
+    add_line(23, f"Verbal only (no sexual acts): {'Yes' if verbal_only else 'No'}")
+    add_line(24, f"Attempt/minor contact only: {'Yes' if attempt_only else 'No'}")
+    add_line(25, f"Acts selected: {join_list(acts_selected)}")
+    add_line(26, f"Aggravators selected: {join_list(aggr_selected)}")
+    add_line(27, f"Tier result: {tier_label}")
+    add_line(28, f"Reporting channels & dates: {', '.join([f'{k}: {fmt_date(v)}' for k,v in report_dates.items()]) if report_dates else '—'}")
+    if earliest_report_date:
+        add_line(29, f"Earliest report: {fmt_date(earliest_report_date)} via {join_list(earliest_channels)} (Δ = {delta_days} day[s])")
+    else:
+        add_line(29, "Earliest report: —")
+    if family_report_dt:
+        delta_hours = (family_report_dt - incident_dt).total_seconds()/3600.0
+        add_line(30, f"Family/Friends report DateTime: {fmt_dt(family_report_dt)} (Δ ≈ {delta_hours:.1f} hours)")
+    else:
+        add_line(30, "Family/Friends report DateTime: —")
+    add_line(31, f"SOL rule applied: {sol_rule_text}")
+    add_line(32, f"SOL end (if applicable): {('No SOL' if sol_years is None else fmt_dt(sol_end))}")
+    add_line(33, f"Wagstaff file-by (SOL − 45d): {('N/A (No SOL)' if sol_years is None else fmt_dt(wagstaff_deadline))}")
+    add_line(34, f"Triten 14-day check: {'OK (≤14 days)' if triten_report_ok else ('Not OK' if earliest_report_date else 'Unknown (no report date)')}")
+    add_line(35, f"Company policy note: Wagstaff = Uber only; Triten = Uber & Lyft")
+    add_line(36, f"Wagstaff Eligibility: {'Eligible' if wag_ok else 'Not Eligible'}")
+    add_line(37, f"Triten Eligibility: {'Eligible' if triten_ok else 'Not Eligible'}")
+
+    elements = "\n".join(line_items)
     st.markdown(f"<div class='copy'>{elements}</div>", unsafe_allow_html=True)
 
     # ========= EXPORT =========
     st.subheader("Export")
     export_payload = {
+        # Inputs
         "ClientName": client_name, "Narrative": narr, "Company": company, "State": state,
         "IncidentDate": fmt_date(incident_date) if incident_date else "UNKNOWN",
         "IncidentTime": incident_time.strftime("%H:%M"),
-        "Receipt": receipt, "ID": gov_id, "InsideNear": inside_near, "HasAtty": has_atty,
+        "Pickup": pickup, "Dropoff": dropoff, "Purpose": purpose,
+        "Receipt": receipt, "ReceiptEvidence": receipt_evidence, "ReceiptEvidenceOther": receipt_evidence_other,
+        "IDProvided": gov_id, "InsideNear": inside_near, "HasAtty": has_atty,
         "FemaleRider": female_rider, "Felony": felony, "DriverWeapon": driver_weapon,
         "ClientCarryingWeapon": client_weapon, "VerbalOnly": verbal_only, "AttemptOnly": attempt_only,
         "Acts_RapePenetration": rape, "Acts_ForcedOralForcedTouch": forced_oral,
         "Acts_TouchingKissing": touching, "Acts_Exposure": exposure, "Acts_Masturbation": masturb,
         "Agg_Kidnap": kidnap, "Agg_Imprison": imprison,
-        "SA_Category": category or "—", "SA_Extension_Used": (sol_state in SA_EXT) and bool(category),
-        "SOL_Rule_Text": sol_rule_text, "SOL_Years": ("No SOL" if sol_years is None else sol_years),
-        "SOL_End": sol_end_str, "Wagstaff_FileBy": wag_deadline_str,
         "ReportedTo": reported_to, "ReportDates": {k: fmt_date(v) for k,v in report_dates.items()},
         "FamilyReportDateTime": fmt_dt(family_report_dt) if family_report_dt else "—",
         "RS_Submit_How": rs_submit_how, "RS_Received_Response": rs_received_response,
         "RS_Response_Detail": rs_response_detail,
+
+        # Calculations
+        "Tier": tier_label, "Acts_Selected": acts_selected, "Aggravators_Selected": aggr_selected,
+        "SA_Category": category or "—", "SA_Extension_Used": (sol_state in SA_EXT) and bool(category),
+        "SOL_Rule_Text": sol_rule_text, "SOL_Years": ("No SOL" if sol_years is None else sol_years),
+        "SOL_End": ("No SOL" if sol_years is None else fmt_dt(sol_end)),
+        "Wagstaff_FileBy": ("N/A (No SOL)" if sol_years is None else fmt_dt(wagstaff_deadline)),
+        "Earliest_Report_Date": fmt_date(earliest_report_date) if earliest_report_date else "—",
+        "Earliest_Report_DeltaDays": (None if delta_days is None else int(delta_days)),
+        "Earliest_Report_Channels": earliest_channels,
+        "Triten_14day_OK": triten_report_ok,
+
+        # Eligibility
         "Eligibility_Wagstaff": "Eligible" if wag_ok else "Not Eligible",
         "Eligibility_Triten": "Eligible" if triten_ok else "Not Eligible",
+
+        # Full text report for copy
         "Elements_Report": elements.strip()
     }
     st.download_button(
-        "Download CSV (intake + decision + diagnostics + report)",
+        "Download CSV (intake + decision + diagnostics + full report)",
         data=pd.DataFrame([export_payload]).to_csv(index=False).encode("utf-8"),
-        file_name="intake_decision_with_diagnostics.csv",
+        file_name="intake_decision_with_full_report.csv",
         mime="text/csv"
     )
 
