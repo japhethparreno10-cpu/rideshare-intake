@@ -67,6 +67,9 @@ STATE_OPTIONS = [
     "Rhode Island","South Carolina","South Dakota","Tennessee","Texas","Utah","Vermont","Virginia","Washington",
     "Washington DC","West Virginia","Wisconsin","Wyoming","Puerto Rico"
 ]
+# Normalize common DC labels for SOL lookups
+STATE_ALIAS = {"Washington DC": "D.C.", "District of Columbia": "D.C."}
+
 STATES = sorted(set(list(TORT_SOL.keys()) + list(WD_SOL.keys()) + ["D.C."]))
 
 # =========================
@@ -112,6 +115,12 @@ def pick(label, options, key, scripts_by_value=None, horizontal=False, index=0):
     if scripts_by_value and val in scripts_by_value:
         script_block(scripts_by_value[val])
     return val
+
+def validate_inputs(incident_dt, earliest_report_date, family_report_dt):
+    issues = []
+    if earliest_report_date and earliest_report_date < incident_dt.date():
+        issues.append("Earliest report date is before the incident date. Please double-check.")
+    return issues
 
 # =========================
 # SESSION STATE
@@ -259,17 +268,29 @@ def render_intake_and_decision():
     tier_label, _ = tier_and_aggravators(state_data)
     common_ok = all([female_rider, receipt, gov_id, inside_near, not has_atty])
 
-    sol_years = TORT_SOL.get(state)
-    sol_end = incident_dt + relativedelta(years=+int(sol_years)) if sol_years else None
-    wagstaff_deadline = (sol_end - timedelta(days=45)) if sol_end else None
-    wagstaff_time_ok = (TODAY <= wagstaff_deadline) if wagstaff_deadline else True
+    # SOL + Wagstaff timing (with DC alias)
+    sol_lookup_state = STATE_ALIAS.get(state, state)
+    sol_years = TORT_SOL.get(sol_lookup_state)
+    if sol_years:
+        sol_end = incident_dt + relativedelta(years=+int(sol_years))
+        wagstaff_deadline = sol_end - timedelta(days=45)
+        wagstaff_time_ok = TODAY <= wagstaff_deadline
+    else:
+        sol_end = None
+        wagstaff_deadline = None
+        wagstaff_time_ok = True
 
-    # Triten earliest report <= 14d
+    # Triten earliest report <= 14d (guard against negatives)
     earliest_report_date = None
     all_dates = [d for d in report_dates.values() if d]
     if state_data["FamilyReportDateTime"]: all_dates.append(state_data["FamilyReportDateTime"].date())
     if all_dates: earliest_report_date = min(all_dates)
-    triten_report_ok = (earliest_report_date - incident_dt.date()).days <= 14 if earliest_report_date else False
+    delta_days = (earliest_report_date - incident_dt.date()).days if earliest_report_date else None
+    triten_report_ok = (delta_days is not None) and (0 <= delta_days <= 14)
+
+    # Basic validation warnings
+    for msg in validate_inputs(incident_dt, earliest_report_date, family_report_dt):
+        st.warning(msg)
 
     # WAGSTAFF rules
     wag_disq, reported_to_set = [], set(reported_to) if reported_to else set()
@@ -302,7 +323,7 @@ def render_intake_and_decision():
     if has_atty: tri_disq.append("Already has attorney → cannot intake")
     triten_ok = common_ok and triten_report_ok and base_tier_ok and not tri_disq
 
-    # COMPANY POLICY: Triten (Uber & Lyft); Waggy (Uber only); Priority Triten if both
+    # COMPANY POLICY
     company_note = ""; priority_note = ""
     if company == "Uber":
         company_note = "Uber → Waggy (Wagstaff) and Triten"
@@ -370,7 +391,7 @@ def render_intake_and_decision():
     family_dt_str = fmt_dt(family_report_dt) if family_report_dt else "—"
     decision = {
         "Tier (severity-first)": tier_label,
-        "General Tort SOL (yrs)": TORT_SOL.get(state,"—"),
+        "General Tort SOL (yrs)": TORT_SOL.get(sol_lookup_state,"—"),
         "SOL End (est.)": fmt_dt(sol_end) if sol_end else "—",
         "Wagstaff file-by (SOL-45d)": fmt_dt(wagstaff_deadline) if wagstaff_deadline else "—",
         "Reported Dates (by channel)": report_dates_str,
@@ -694,13 +715,12 @@ def render_wagstaff_questions():
 
     affirm = pick("103. Affirm all answers are true and correct (incl. prior firm signup)?", ["Yes","No"], key="q103", horizontal=True)
 
-    # TECHNICAL (104–105)
+    # TECH (104–105)
     st.markdown("---")
     st.subheader("INTAKE ENDS HERE")
     ip_addr = st.text_input("104. IP Address")
     jornaya = st.text_area("105. Trusted Form/Jornaya Data")
 
-    # SAVE (now a normal button so state saves instantly)
     if st.button("Save Wagstaff Answers"):
         st.session_state.answers_wag = {
             # 1–4
@@ -757,8 +777,8 @@ def render_wagstaff_questions():
             "99_ph_med1": ph_med1, "100_ph_med2": ph_med2, "101_ph_comments": ph_comments, "102_ph_med3": ph_med3,
             # 103–105
             "103_affirm": affirm, "104_ip_address": ip_addr, "105_jornaya": jornaya
-        }
-        st.success("Wagstaff answers saved. Use Export on the intake page or copy from here as needed.")
+        })
+        st.success("Wagstaff answers saved.")
 
     # footer actions
     colA, colB, colC = st.columns([1,1,2])
@@ -766,46 +786,470 @@ def render_wagstaff_questions():
         if st.button("Back to Intake"):
             st.session_state.step = "intake"; st.rerun()
     with colB:
-        # quick CSV export for Wagstaff page
-        if st.button("Prepare Wagstaff CSV"):
-            payload = {"firm":"Wagstaff"}
-            if "intake_payload" in st.session_state: payload.update(st.session_state.intake_payload)
-            payload.update(st.session_state.answers_wag)
-            df = pd.DataFrame([payload])
-            csv_bytes = df.to_csv(index=False).encode("utf-8")
-            st.download_button("Download wagstaff_followup.csv", data=csv_bytes, file_name="wagstaff_followup.csv", mime="text/csv", key="dl_wag_csv_btn")
+        # Always-on CSV
+        payload = {"firm":"Wagstaff"}
+        if "intake_payload" in st.session_state: payload.update(st.session_state.intake_payload)
+        payload.update(st.session_state.answers_wag)
+        df = pd.DataFrame([payload])
+        csv_bytes = df.to_csv(index=False).encode("utf-8")
+        st.download_button("Download wagstaff_followup.csv", data=csv_bytes, file_name="wagstaff_followup.csv", mime="text/csv", key="dl_wag_csv_btn")
     with colC:
         st.caption("Yes/No scripts now update instantly—no Submit needed.")
 
 # =========================
-# TRITEN PLACEHOLDER (awaiting your scripts)
+# TRITEN – YOUR DETAILED FLOW (VERBATIM)
 # =========================
 def render_triten_questions():
-    st.header("Triten – Follow-up Questions (placeholder)")
-    q1 = st.date_input("T1. Earliest report date (any channel)", value=TODAY.date())
-    q2 = st.text_input("T2. Rideshare case/incident #")
-    q3 = st.checkbox("T3. Driver made explicit sexual/physical threats")
-    q4 = st.checkbox("T4. Off-route / False imprisonment")
-    q5 = st.text_area("T5. Physical or psychological injuries (summary)")
-    q6 = st.checkbox("T6. Ongoing therapy/treatment")
+    st.header("Triten – Detailed Questionnaire")
+    st.caption("Uses your exact wording. Scripts show inline where you specified them.")
 
+    def calc_age(d):
+        try:
+            if not d: return None
+            today = TODAY.date()
+            return today.year - d.year - ((today.month, today.day) < (d.month, d.day))
+        except Exception:
+            return None
+
+    # 1–4 Narrative
+    st.subheader("1–4. Narrative")
+    tri_1_stmt = st.text_area("1. Statement of the Case:")
+    tri_2_burden = st.text_area("2. Burden:")
+    tri_3_ice = st.text_area("3. Icebreaker:")
+    tri_4_comments = st.text_area("4. Comments:")
+
+    # CLIENT CONTACT DETAILS (5–21)
+    st.markdown("---")
+    st.subheader("CLIENT CONTACT DETAILS")
+
+    ccols = st.columns([1,1,1])
+    tri_5_first = ccols[0].text_input("5. Client Name: (First Name)")
+    tri_5_middle = ccols[1].text_input("(Middle Name)")
+    tri_5_last = ccols[2].text_input("(Last Name)")
+
+    tri_6_maiden = st.text_input("6. What is your maiden name (if applicable)?")
+    tri_7_prefname = st.text_input("7. Preferred Name?")
+    tri_8_email = st.text_input("8. Primary Email:")
+    tri_9_addr = st.text_input("9. Mailing Address:")
+    tri_10_city = st.text_input("10. City:")
+    tri_11_state = st.selectbox("11. State:", STATE_OPTIONS)
+    tri_12_zip = st.text_input("12. Zip:")
+    tri_13_home = st.text_input("13. Home Phone No.:", placeholder="+1 (###) ###-####")
+    tri_14_cell = st.text_input("14. Cell Phone No.:", placeholder="(214) 550-0063")
+    tri_15_best = st.text_input("15. Best Time to Contact:")
+    tri_16_pref = st.text_input("16. Preferred Method of Contact:")
+
+    tri_17_dob = st.date_input("17. Date of Birth: mm-dd-yyyy", value=TODAY.date())
+    st.caption(f"Age: {calc_age(tri_17_dob) if tri_17_dob else 'Not calculated yet'}")
+
+    tri_18_ssn = st.text_input("18. Social Security No.: 000-00-0000")
+    tri_19_claim_for = st.radio("19. Does the claim pertain to you or another person?", ["Myself","Someone else"], horizontal=True)
+    tri_20_marital = st.radio("20. Current marital status:", ["Single","Married","Divorced","Widowed"], horizontal=True)
+    tri_21_prevfirm = st.text_area("21. As far as you can remember, have you signed up with any Law Firm to represent you on this case but then got disqualified for any reason . . . we still might be able to help but need to know?")
+
+    # INJURED PARTY DETAILS (22–30)
+    st.markdown("---")
+    st.subheader("INJURED PARTY DETAILS")
+
+    tri_22_ip_dob = st.date_input("22. Injured/Deceased Party's DOB: mm-dd-yyyy", value=TODAY.date())
+    st.caption(f"Age: {calc_age(tri_22_ip_dob) if tri_22_ip_dob else 'Not calculated yet'}")
+
+    tri_23_ip_name = st.text_input("23. Injured/Deceased Party's Full Name (First, Middle, & Last Name):")
+    tri_24_ip_gender = st.text_input("24. Injured Party Gender")
+    tri_25_ip_ssn = st.text_input("25. Injured/Deceased Party's SS#: 000-00-0000")
+    tri_26_ip_rel = st.text_input("26. PC's Relationship to Injured/Deceased: (leave blank if PC is representing self)")
+
+    tri_27_poa = st.radio("27. Does caller have POA or other legal authority?", ["Yes","No"], horizontal=True)
+    tri_28_title = st.multiselect("28. Title to Represent:", ["Executor","Administrator","Trustee","Conservator","Legal Guardian","Power of Attorney","Parent","Other Agent"])
+    tri_29_proof = st.radio("29. Does caller have proof of legal authority?", ["Yes","No"], horizontal=True)
+    tri_30_reason = st.selectbox("30. Reason PC cannot discuss case:", ["Select","Minor","Incapacitated","Death","Other"])
+
+    # IF DECEASED (31–36)
+    st.markdown("IF INJURED CLAIMANT DIED:  (Please provide copy of Death Certificate to Paralegal When Confirming Details)")
+    tri_31_deceased = st.radio("31. Is the client deceased?", ["Yes","No"], horizontal=True)
+    tri_32_dod = st.date_input("32. Date of Death (if applies):", value=TODAY.date()) if tri_31_deceased=="Yes" else None
+    tri_33_cod = st.text_input("33. Cause of Death on Death Cert:") if tri_31_deceased=="Yes" else ""
+    tri_34_death_state = st.selectbox("34. In what state did the death occur?", STATE_OPTIONS) if tri_31_deceased=="Yes" else ""
+    tri_35_death_cert = st.radio("35. Do you have a death certificate?", ["Yes","No"], horizontal=True) if tri_31_deceased=="Yes" else "No"
+    tri_36_right_docs = st.text_area("36. Documentation of your right to the decedent’s claim?")
+
+    # ALTERNATE / EMERGENCY CONTACT (37–40)
+    st.markdown("---")
+    st.subheader("ALTERNATE  / EMERGENCY CONTACT DETAILS")
+    tri_37_ec_name = st.text_input("37. Alternate / Emergency Contact First & Last Name")
+    tri_38_ec_rel = st.text_input("38. Alternate / Emergency Contact Relation to Client")
+    tri_39_ec_phone = st.text_input("39. Alternate / Emergency Contact Number", placeholder="+1 (###) ###-####")
+    tri_40_ec_email = st.text_input("40. Alternate / Emergency Contact Email")
+
+    # INCIDENT DETAILS (41–59)
+    st.markdown("---")
+    st.subheader("INCIDENT DETAILS")
+
+    tri_41_role = pick(
+        "41. Were you the driver or rider during this incident?",
+        ["Driver","Rider"], key="tri_41_role", horizontal=True,
+        scripts_by_value={
+            "Rider": "If Rider: Okay, you were the rider. Thank you for clarifying that — this helps us understand who had control of the vehicle.",
+            "Driver": "If Driver: Okay. You were the driver — thank you for sharing that. Unfortunately, the law firm is not currently taking cases where the driver was assaulted. I’m really sorry we cannot help you."
+        }
+    )
+
+    tri_42_narr = st.text_area(
+        "42. I know it’s not always easy to talk about the incident and we appreciate you trusting us with these details. "
+        "Can you please describe what happened in your own words. (Allow claimant to speak freely.)  "
+        "(Include purpose of rideshare and type of location, like business or residence; front or back seat; vehicle stopped or moving during assault.)"
+    )
+    script_block('Agent Response: Thank you for sharing that with me. You said "[mirror key words]" — and that sounds incredibly difficult. I want you to know this space is confidential, and you\'re doing the right thing by speaking up.')
+
+    tri_43_options = [
+        "Rape","Sodomy","Digital penetration",
+        "Forced oral copulation (oral contact with sexual organs or anus)",
+        "Unwanted touching or attempt of touching (including kissing) of sexual body parts (breast, buttocks, genitals, inner thighs) Over Clothes",
+        "Unwanted touching or attempt of touching (including kissing) of sexual body parts (breast, buttocks, genitals, inner thighs) -- Under Clothes",
+        "Indecent exposure and unwanted touching, masturbation",
+        "Masturbation",
+        "Inappropriate/unwanted touching to non-sexual body parts",
+        "Forced manual stimulation"
+    ]
+    tri_43_rst = st.multiselect("43. (RST) Please select any of the following that occurred:", options=sorted(set(tri_43_options)))
+
+    tri_44_inj_dx = st.text_area("44. Please provide details regarding your injuries and diagnosis (from a medical professional, including doctor, therapist, psychiatrist).")
+
+    tri_45_has_date = pick("45. Do you have the Date the incident occurred?", ["Yes","No"], key="tri_45_has_date", horizontal=True,
+                           scripts_by_value={"Yes": "Agent Response: Got it. The date was [repeat date]. The timing really helps us document everything properly and connect the incident with the Rideshare trip. So thank you for that."})
+    tri_45a_inc_date = st.date_input("Select date", value=TODAY.date(), key="tri_45a_inc_date") if tri_45_has_date=="Yes" else None
+
+    tri_46_timing = st.radio("46. Timing of incident", ["1 year ago","1-2 years ago","3-4 years ago","4+ years ago"], horizontal=True)
+    tri_47_company = st.selectbox("47. Which Rideshare company did you use?", ["Uber","Lyft","Other"])
+    script_block("Agent Response: [Rideshare company name], got it. That helps the law firm determine who may be held responsible and verify who operated the ride at the time. You’re doing great.")
+
+    tri_48_in_us = st.radio("48. Did the incident occur within the United States?", ["Yes","No"], horizontal=True)
+    tri_49_state = st.selectbox("49. What state this this happen?", STATE_OPTIONS)
+    script_block("Agent Response: Okay. [Repeat state]. Thank you.")
+
+    tri_50_pickup = st.text_input("50. Can you tell me the Pick-up location? (Need full address + accurate description confirmed in Google maps)")
+    script_block("Agent Response: Okay, you were picked up from [repeat location]. Got it – every detail like this helps to reconstruct the trip and validate what happened — thank you.")
+
+    tri_51_drop = st.text_input("51. And where was the Drop-off location? (Need full address + accurate description confirmed in Google maps)")
+    script_block("Agent Response: Okay, you were dropped off at [location]. Thank you. That’s helpful in building out the trip details.")
+
+    tri_52_sa = yesno(
+        "52. You’re doing great. Were you sexually assaulted or inappropriately touched by the Rideshare driver?",
+        key="tri_52_sa",
+        script_yes="Agent Response: Okay, I’m really sorry to hear you were [repeat relevant details] and put in that situation. It’s incredibly brave of you to talk about it. Thank you for trusting us with this."
+    )
+
+    tri_53_phys = yesno("53. Were you physically assaulted by a rideshare driver/passenger? (Ex: Was there a threat of - or actual - unwanted touching, slapping, pinching, pushing, shoving, choking, kicking, or physical restraints.)", key="tri_53_phys")
+
+    tri_54_verbal = yesno("54. Were you subjected to verbal harassment?", key="tri_54_verbal",
+                          script_yes="If Yes: Okay, so you did experience verbal harassment – I’m sorry you had to endure that. Even when it’s not physical, those moments are serious and deserve to be heard.")
+
+    tri_55_flirt_threat = yesno("55. Did the assault involve aggressive flirtation and/or overt sexual threats? (Ex: Persistent physical touch, suggestive comments, disregard for personal space or boundaries / Threats of rape, assault, demands for sexual favors, threats of negative consequences for refusal.)", key="tri_55_flirt_threat")
+
+    tri_56_fi_kidnap = yesno("56. During this incident, were you subjected to false imprisonment or kidnapping (such as physical/verbal restraint or restriction of movement) with overt or physical threats?",
+                             key="tri_56_fi_kidnap",
+                             script_yes="Agent Response: That sounds terrifying – you mentioned [repeat some relevant acts], and I’m really sorry you went through that. We want to make sure the law firm understands how serious this was.")
+
+    tri_57_scope = pick("57. Did the incident occur while utilizing the Rideshare service, either inside or just outside the vehicle?",
+                        ["Yes","No"], key="tri_57_scope", horizontal=True,
+                        scripts_by_value={"Yes":"If Yes: Okay. So, it happened [repeat where happened]. Thank you. Knowing where it happened while using the Rideshare helps confirm that it’s within the scope of the Rideshare’s responsibility, which includes providing a safe means of transportation."})
+
+    tri_58_driver_weapon = st.text_area("58. Did the driver threaten or use any weapons or means of force during the sexual assault, such as gun, knife, or choking? If yes, please elaborate.")
+    if tri_58_driver_weapon.strip():
+        script_block("If Yes: Okay, [repeat type of weapon or means of force]. That’s very serious and the details help paint a full picture of the situation. I’m so sorry that happened.")
+    else:
+        script_block("If No: Okay, although there was no weapon, this is still a very serious situation and does not change the magnitude of the incident.")
+
+    tri_59_client_weapon = pick("59. Were you carrying a weapon at the time of the assault? If yes, DQ. (Personal defense tools like pepper spray/mace may not be a weapon)",
+                                ["No","Yes"], key="tri_59_client_weapon", horizontal=True,
+                                scripts_by_value={
+                                    "No":"If No: Okay, you did not have a weapon with you. That’s all we need on that part — thank you for confirming.",
+                                    "Yes":"If Yes: Okay, thank you for that. And I appreciate your honesty. But based upon the current guidelines, the law firm may not be accepting cases where the victim had a weapon."
+                                })
+
+    # REPORTING & TREATMENT DETAILS (60–75)
+    st.markdown("---")
+    st.subheader("REPORTING & TREATMENT DETAILS")
+
+    tri_60_receipt = pick("60. Are you able to reproduce the Rideshare Receipt to show proof of the ride? (If not, DQ)",
+                          ["Yes","No"], key="tri_60_receipt", horizontal=True,
+                          scripts_by_value={
+                              "Yes":"If Yes: Okay, that’s great you can get the receipt for the ride. That is one of the most important pieces of proof we need that will link your rideshare trip to the incident.",
+                              "No":"If No: Okay, so you cannot check it in your email or on the app? That is one of the most important pieces of proof we need that will link your rideshare trip to the incident. [Refer the claimant to instructions on obtaining the receipt through email or the app.]"
+                          })
+    tri_61_login = pick("61. Do you have or can you retrieve the log in information for the account the ride was ordered from?",
+                        ["Yes","No"], key="tri_61_login", horizontal=True)
+
+    tri_62_reported = st.multiselect("62. Did you report the incident to anyone, like the Rideshare Company, Police, Therapist, Physician, or Friend or Family Member?",
+                                     ["Rideshare Company","Physician","Friend or Family Member","Therapist","Police Department","NO (DQ, UNLESS TIER 1 OR MINOR)"])
+    if tri_62_reported:
+        script_block("If Reported: Okay, that’s good that you reported it to [repeat answer] — thank you. That helps show you took steps to get help, and that can support your case. It takes a lot of strength.")
+    else:
+        script_block("If Not Reported: Okay, so you didn’t tell anyone that might be able to corroborate your story. That can make it difficult to pursue. Let me speak with my supervisor, but based upon the guidelines, the law firm may not be accepting cases where the victim did not report it to anyone.")
+
+    st.markdown("**If Reported to a Friend or Family Member:**")
+    tri_63_ff_name = st.text_input("63. Name of friend/family member:")
+    tri_64_ff_contact = st.text_input("64. Contact Information:")
+    tri_65_ff_rel = st.text_input("65. Relationship:")
+    tri_66_ff_perm = pick("66. Permission to speak to family member?", ["Yes","No"], key="tri_66_ff_perm", horizontal=True)
+    tri_67_ff_date = st.date_input("67. Date informed family member?", value=TODAY.date())
+    tri_68_ff_details = st.text_area("68. What details did you share to this family member?")
+    tri_69_ff_ok = pick("69. Would you be okay with us reaching out to them at a later time?", ["Yes","No"], key="tri_69_ff_ok", horizontal=True)
+    tri_70_ff_when = st.date_input("70. When did you report the incident to your friend or family member?", value=TODAY.date())
+    tri_71_ff_share = st.text_area("71. What did you share with them about the incident?")
+
+    tri_72_rs_how = st.text_input("72. If submitted to Rideshare:  How did you submit the report to Uber or Lyft?")
+    if tri_72_rs_how.strip():
+        script_block("Agent Response: Okay, so you submitted it through [email/app]. That’s helpful — thank you for sharing that. Some survivors have used the app, and others reached out by email, so either is totally fine.")
+
+    tri_73_rs_resp = st.text_input("73. Did you receive a response from Uber or Lyft?")
+    if tri_73_rs_resp.strip():
+        script_block("Agent Response: Got it — so they [did/did not] respond. That can be really frustrating, especially when you're expecting someone to acknowledge what happened.")
+
+    tri_74_willing = pick("74. If not submitted to Rideshare via app or email: If the law firm feels that it is best that you report the incident to Uber or Lyft via email or the app, would you be willing to do so?",
+                          ["Yes","No","Unsure"], key="tri_74_willing", horizontal=True,
+                          scripts_by_value={
+                              "Yes":"If Yes: Okay, so you'd be willing to report the incident if the law firm recommends it — thank you for being open to that. I'm sure they will provide guidance. It shows strength, and it could really help support your case.",
+                              "No":"If No or Unsure: Okay, so you're not comfortable reporting it through the app or email right now — I completely understand. If the law firm thinks it's important later on, they'll walk you through what to do step by step. You're not alone in this.",
+                              "Unsure":"If No or Unsure: Okay, so you're not comfortable reporting it through the app or email right now — I completely understand. If the law firm thinks it's important later on, they'll walk you through what to do step by step. You're not alone in this."
+                          })
+
+    tri_75_contact_info = st.text_area("75. Contact information for the person to whom incident was reported (Name, Address, Phone, Date Reported)")
+    if tri_75_contact_info.strip():
+        script_block("Agent Response: Okay, you reported it to [repeat answer]. That’s very helpful — we’ll make sure it’s properly noted.")
+
+    # DETAILS ON WHO INCIDENT WAS REPORTED TO #1–#5 (76–95)
+    st.markdown("DETAILS ON WHO REPORTED INCIDENT TO:")
+    rel_options = ["Rideshare Company","Physician","Therapist","Police Department","Friend or Family Member"]
+    reported_blocks = []
+    for idx in range(5):
+        base = 76 + idx*4  # (#1: 76–79, #2: 80–83, #3: 84–87, #4: 88–91, #5: 92–95)
+        st.markdown(f"**DETAILS ON WHO INCIDENT WAS REPORTED TO #{idx+1}:**")
+        name = st.text_input(f"{base}. Name who incident was reported to:", key=f"tri_rep{idx+1}_name")
+        relation = st.selectbox(f"{base+1}. Relationship to Claimant:", ["Select"] + rel_options, key=f"tri_rep{idx+1}_rel")
+        date = st.date_input(f"{base+2}. Date incident was reported to this person:", value=TODAY.date(), key=f"tri_rep{idx+1}_date")
+        addr = st.text_input(f"{base+3}. Address of this person incident was reported:", key=f"tri_rep{idx+1}_addr")
+        reported_blocks.append({"name": name, "relation": relation, "date": str(date), "address": addr})
+
+    # IF PC CALLED UBER OR LYFT (96–99)
+    st.markdown("---")
+    st.subheader("IF PC CALLED UBER OR LYFT")
+    st.caption("A lot of survivors have tried different ways to get in touch with Uber. Sometimes it’s confusing because the options aren’t always clear — so you’re definitely not alone in that.")
+
+    tri_96_where_num = st.text_input("96. Do you remember where you found the phone number you called?")
+    if tri_96_where_num.strip():
+        script_block('Agents Response: “Thanks for letting me know. A lot of people try calling through numbers they find online or in emails. You said you found it [repeat source: online/in an old email/etc.] — that’s helpful.”')
+
+    tri_97_confirm_no = st.text_input("97. Did you receive any kind of confirmation or case number from that call?")
+    if tri_97_confirm_no.strip():
+        script_block('Agents Response: “Got it. That helps us track if Uber created an internal file for your report.”')
+
+    tri_98_who_answered = st.text_input("98. When you made the call, did someone say they were with Uber or Lyft, or just take down your information?")
+    if tri_98_who_answered.strip():
+        script_block('Agents Response: “Okay, so they answered — and you said they [repeat answer]?” “That’s helpful. We’ve heard similar things from others who weren’t quite sure who they spoke with.”')
+
+    tri_99_follow_up = st.text_area("99. Did you receive any follow-up after the call — like an email or app message? Or did they give you any instructions, like emailing, going to the app, or waiting for a follow-up?")
+    if tri_99_follow_up.strip():
+        script_block('If asked to email or use the app:  Thank you for walking me through that. You mentioned they told you to [repeat answer], and that’s something we hear often. A lot of survivors say they didn’t get much clarity — or were told to start over — so you’re not alone in that.”')
+    else:
+        script_block('If no follow-up was received:  Got it. You said you didn’t hear anything back — and that’s totally okay. A lot of survivors have shared the same experience, where they reported something and never received any kind of follow-up."')
+
+    # MEDICAL TREATMENT DETAILS (100–106)
+    st.markdown("---")
+    st.subheader("MEDICAL TREATMENT DETAILS")
+    tri_100_forms = st.text_input("100. Have you ever signed any forms for anyone to get your medical records for this matter? (If so, who?)")
+    tri_101_med = pick("101. Did you receive medical treatment for physical injuries sustained during the assault?", ["Yes","No"], key="tri_101_med", horizontal=True)
+    tri_102_med_desc = st.text_area("102. Please describe your medical treatment:")
+    tri_103_doc = st.text_input("103. Doctor who diagnosed you:")
+    tri_104_fac = st.text_input("104. Hospital/Facility where the diagnosis was done:")
+    tri_105_addr = st.text_input("105. Hospital/Facility/Doctor's Address:")
+    tri_106_phone = st.text_input("106. Hospital/Facility/Doctor's Phone Number:", placeholder="+1 (###) ###-####")
+
+    # MENTAL HEALTH TREATMENT DETAILS 1 (107–115)
+    st.markdown("---")
+    st.subheader("MENTAL HEALTH TREATMENT DETAILS 1")
+    tri_107_mh = pick("107. Have you received any mental health treatment related to your assault?", ["Yes","No"], key="tri_107_mh", horizontal=True)
+    tri_108_mh_desc = st.text_area("108. Please describe your mental health treatment so far (generally):")
+    tri_109_mh_doc = st.text_input("109. Name of the Doctor who treated you:")
+    tri_110_mh_hosp = st.text_input("110. Hospital where you received treatment:")
+    tri_111_mh_addr = st.text_input("111. Hospital's Address:")
+    tri_112_mh_phone = st.text_input("112. Hospital's Phone Number:", placeholder="+1 (###) ###-####")
+    tri_113_mh_web = st.text_input("113. Hospital's Website Address:")
+    tri_114_mh_dx = st.text_input("114. Diagnosed Ailment / Diagnosis Date(s):")
+    tri_115_mh_tx = st.text_area("115. Treatment Type / Treatment Date(s): (Describe the treatment that you received in detail)")
+
+    # MENTAL HEALTH TREATMENT DETAILS 2 (116–124)
+    st.markdown("---")
+    st.subheader("MENTAL HEALTH TREATMENT DETAILS 2")
+    tri_116_mh2 = pick("116. Have you received any mental health treatment related to your assault?", ["Yes","No"], key="tri_116_mh2", horizontal=True)
+    tri_117_mh2_desc = st.text_area("117. Please describe your mental health treatment so far (generally):")
+    tri_118_mh2_doc = st.text_input("118. Name of the Doctor who treated you:")
+    tri_119_mh2_hosp = st.text_input("119. Hospital where you received treatment:")
+    tri_120_mh2_addr = st.text_input("120. Hospital's Address:")
+    tri_121_mh2_phone = st.text_input("121. Hospital's Phone Number:")
+    tri_122_mh2_web = st.text_input("122. Hospital's Website Address:")
+    tri_123_mh2_dx = st.text_input("123. Diagnosed Ailment / Diagnosis Datae(s):")
+    tri_124_mh2_tx = st.text_area("124. Treatment Type / Treatment Date(s): (Describe the treatment that you received in detail).")
+
+    # ADDITIONAL PROVIDERS (125–132)
+    st.markdown("---")
+    st.subheader("ADDITIONAL RELEVANT MEDICAL OR MENTAL HEALTH PROVIDERS")
+    tri_125_am_name = st.text_input("125. Doctor/ Facility Name:")
+    tri_126_am_addr = st.text_input("126. Address:")
+    tri_127_am_phone = st.text_input("127. Phone Number:")
+    tri_128_am_web = st.text_input("128. Website Address")
+    tri_129_am_dx = st.text_input("129. Diagnosed Ailment / Diagnosis Date(s):")
+    tri_130_am_sym = st.text_input("130. Symptom(s):")
+    tri_131_am_tx = st.text_input("131. Treatment Type / Treatment Date(s):")
+    tri_132_am_comments = st.text_area("132. Comments:")
+
+    # PHARMACY (133–140)
+    st.markdown("---")
+    st.subheader("PHARMACY FOR MEDICATIONS")
+    tri_133_ph_name = st.text_input("133. Name:")
+    tri_134_ph_phone = st.text_input("134. Phone:")
+    tri_135_ph_web = st.text_input("135. Website:")
+    tri_136_ph_addr = st.text_input("136. Full Street, City, Zip Address:")
+    tri_137_ph_med1 = st.text_input("137. Ailment / Medication / Dates Prescribed:")
+    tri_138_ph_med2 = st.text_input("138. Ailment / Medication / Dates Prescribed:")
+    tri_139_ph_comments = st.text_area("139. Comments:")
+    tri_140_ph_med3 = st.text_input("140. Ailment / Medication / Date Prescribed:")
+
+    # AFFIRM + TECH (141–143)
+    st.markdown("---")
+    tri_141_affirm = pick("141. [Having just confirmed all the answers you have provided in response to all the questions] Do you hereby affirm that the information submitted by you is true and correct in all respects, including whether you've ever signed up with another law firm?",
+                          ["Yes","No"], key="tri_141_affirm", horizontal=True)
+    st.subheader("INTAKE ENDS HERE")
+    tri_142_ip = st.text_input("142. IP Address")
+    tri_143_jornaya = st.text_area("143. Trusted Form/Jornaya Data")
+
+    # LEGACY QUESTIONS (144–160)
+    st.markdown("---")
+    st.subheader("LEGACY QUESTIONS")
+    tri_144_reported = st.multiselect("144. Did you report the incident to anyone, like the Rideshare Company, Police, Therapist, Physician, or Friend or Family Member?",
+                                      ["Rideshare Company","Physician","Friend or Family Member","Therapist","Police Department","NO (DQ, UNLESS TIER 1 OR MINOR)"])
+    if tri_144_reported:
+        script_block("If Reported: Okay, that’s good that you reported it to [repeat answer] — thank you. That helps show you took steps to get help, and that can support your case. It takes a lot of strength.")
+    else:
+        script_block("If Not Reported: Okay, so you didn’t tell anyone that might be able to corroborate your story. That can make it difficult to pursue. Let me speak with my supervisor, but based upon the guidelines, the law firm may not be accepting cases where the victim did not report it to anyone.")
+
+    tri_145_legacy_ipdob = st.date_input("145. Injured/Deceased Party's DOB: mm-dd-yyyy", value=TODAY.date())
+    tri_146_claim_for = st.radio("146. Does the claim pertain to you or another person?", ["Myself","Someone Else"], horizontal=True)
+    tri_147_legacy_dod = st.date_input("147. Date of Death (if applies):", value=TODAY.date())
+    tri_148_legacy_state = st.selectbox("148. In what state did the death occur?", STATE_OPTIONS)
+    tri_149_role2 = pick("149. Were you the driver or rider during this incident?",
+                         ["Driver","Rider"], key="tri_149_role", horizontal=True,
+                         scripts_by_value={
+                             "Rider":"If Rider: Okay, you were the rider. Thank you for clarifying that — this helps us understand who had control of the vehicle.",
+                             "Driver":"If Driver: Okay. You were the driver — thank you for sharing that. Unfortunately, the law firm is not currently taking cases where the driver was assaulted. I’m really sorry we cannot help you."
+                         })
+    tri_150_marital = st.multiselect("150. Current marital status' (check one):", ["Single","Divorced","Widowed","Married"])
+    tri_151_timing = st.multiselect("151. Timing of incident", ["1 year ago","1-2 years ago","3-4 years ago","4+ years ago"])
+    tri_152_title = st.multiselect("152. Title to Represent:", ["Executor","Conservator","Parent","Administrator","Legal Guardian","Other Agent","Trustee","Power of Attorney"])
+
+    tri_153_reported2 = st.multiselect("153. Did you report the incident to anyone, like the Rideshare Company, Police, Therapist, Physician, or Friend or Family Member?",
+                                       ["Rideshare Company","Police","Therapist","Physician","Friend or Family Member"])
+    tri_154_has_incdate = st.text_input("154. Do you have the Date the incident occurred? (Agent Response: Got it. The date was [repeat date]. The timing really helps us document everything properly and connect the incident with the Rideshare trip. So thank you for that.)")
+
+    tri_155_rel = st.text_input("155. Relationship to claimant:")
+    tri_156_rel = st.text_input("156. Relationship to Claimant:")
+    tri_157_rel = st.text_input("157. Relationship to claimant:")
+    tri_158_rel = st.text_input("158. Relationship to claimant:")
+    tri_159_rel = st.text_input("159. Relationship to claimant:")
+    tri_160_perm = st.text_input("160. Permission to speak to family member?")
+
+    # Derived 14-day Triten check (uses intake incident date + the earliest reported date we captured)
+    incident_dt_from_intake = None
+    if "intake_payload" in st.session_state and st.session_state.get("intake_payload", {}).get("IncidentDateTime"):
+        incident_dt_from_intake = st.session_state.intake_payload["IncidentDateTime"]
+
+    report_dates_candidates = []
+    if tri_67_ff_date: report_dates_candidates.append(tri_67_ff_date)
+    if tri_70_ff_when: report_dates_candidates.append(tri_70_ff_when)
+    for blk in reported_blocks:
+        try:
+            d = pd.to_datetime(blk["date"]).date()
+            report_dates_candidates.append(d)
+        except Exception:
+            pass
+
+    tri_earliest_report = min(report_dates_candidates) if report_dates_candidates else None
+    tri_14_check = "Unknown"
+    if tri_earliest_report and incident_dt_from_intake:
+        d = (tri_earliest_report - incident_dt_from_intake.date()).days
+        tri_14_check = (0 <= d <= 14)
+        if not tri_14_check:
+            st.warning("Earliest report appears outside the two-week window (Triten screen). Double-check dates.")
+
+    # Persist everything
     st.session_state.answers_tri = {
-        "T1_earliest_report_date": str(q1), "T2_rs_case_no": q2,
-        "T3_threats": q3, "T4_offroute_or_fi": q4,
-        "T5_injuries": q5, "T6_therapy": q6
+        "1_statement": tri_1_stmt, "2_burden": tri_2_burden, "3_icebreaker": tri_3_ice, "4_comments": tri_4_comments,
+        "5_first": tri_5_first, "5_middle": tri_5_middle, "5_last": tri_5_last, "6_maiden": tri_6_maiden,
+        "7_pref_name": tri_7_prefname, "8_email": tri_8_email, "9_addr": tri_9_addr, "10_city": tri_10_city,
+        "11_state": tri_11_state, "12_zip": tri_12_zip, "13_home": tri_13_home, "14_cell": tri_14_cell,
+        "15_best_time": tri_15_best, "16_pref_contact": tri_16_pref, "17_dob": str(tri_17_dob),
+        "18_ssn": tri_18_ssn, "19_claim_for": tri_19_claim_for, "20_marital": tri_20_marital, "21_prev_firm": tri_21_prevfirm,
+        "22_ip_dob": str(tri_22_ip_dob), "23_ip_name": tri_23_ip_name, "24_ip_gender": tri_24_ip_gender,
+        "25_ip_ssn": tri_25_ip_ssn, "26_ip_rel": tri_26_ip_rel, "27_poa": tri_27_poa, "28_title": tri_28_title,
+        "29_proof": tri_29_proof, "30_reason": tri_30_reason,
+        "31_deceased": tri_31_deceased, "32_dod": (str(tri_32_dod) if tri_32_dod else ""),
+        "33_cod": tri_33_cod, "34_death_state": tri_34_death_state, "35_death_cert": tri_35_death_cert,
+        "36_right_docs": tri_36_right_docs,
+        "37_ec_name": tri_37_ec_name, "38_ec_rel": tri_38_ec_rel, "39_ec_phone": tri_39_ec_phone, "40_ec_email": tri_40_ec_email,
+        "41_role": tri_41_role, "42_narr": tri_42_narr, "43_rst": tri_43_rst, "44_inj_dx": tri_44_inj_dx,
+        "45_has_date": tri_45_has_date, "45a_inc_date": (str(tri_45a_inc_date) if tri_45a_inc_date else ""),
+        "46_timing": tri_46_timing, "47_company": tri_47_company, "48_in_us": tri_48_in_us, "49_state": tri_49_state,
+        "50_pickup": tri_50_pickup, "51_dropoff": tri_51_drop, "52_sa": tri_52_sa, "53_phys_assault": tri_53_phys,
+        "54_verbal": tri_54_verbal, "55_flirt_threat": tri_55_flirt_threat, "56_fi_kidnap": tri_56_fi_kidnap,
+        "57_scope": tri_57_scope, "58_driver_weapon": tri_58_driver_weapon, "59_client_weapon": tri_59_client_weapon,
+        "60_receipt": tri_60_receipt, "61_login": tri_61_login, "62_reported": tri_62_reported,
+        "63_ff_name": tri_63_ff_name, "64_ff_contact": tri_64_ff_contact, "65_ff_rel": tri_65_ff_rel,
+        "66_ff_perm": tri_66_ff_perm, "67_ff_date": str(tri_67_ff_date), "68_ff_details": tri_68_ff_details,
+        "69_ff_ok": tri_69_ff_ok, "70_ff_when": str(tri_70_ff_when), "71_ff_share": tri_71_ff_share,
+        "72_rs_how": tri_72_rs_how, "73_rs_resp": tri_73_rs_resp, "74_willing": tri_74_willing,
+        "75_contact_info": tri_75_contact_info,
+        "reported_to_blocks": reported_blocks,
+        "96_where_number": tri_96_where_num, "97_confirm_or_case": tri_97_confirm_no,
+        "98_who_answered": tri_98_who_answered, "99_follow_up": tri_99_follow_up,
+        "100_forms": tri_100_forms, "101_med_treated": tri_101_med, "102_med_desc": tri_102_med_desc,
+        "103_med_doc": tri_103_doc, "104_med_fac": tri_104_fac, "105_med_addr": tri_105_addr, "106_med_phone": tri_106_phone,
+        "107_mh_yes": tri_107_mh, "108_mh_desc": tri_108_mh_desc, "109_mh_doc": tri_109_mh_doc,
+        "110_mh_hosp": tri_110_mh_hosp, "111_mh_addr": tri_111_mh_addr, "112_mh_phone": tri_112_mh_phone,
+        "113_mh_web": tri_113_mh_web, "114_mh_dx": tri_114_mh_dx, "115_mh_tx": tri_115_mh_tx,
+        "116_mh2_yes": tri_116_mh2, "117_mh2_desc": tri_117_mh2_desc, "118_mh2_doc": tri_118_mh2_doc,
+        "119_mh2_hosp": tri_119_mh2_hosp, "120_mh2_addr": tri_120_mh2_addr, "121_mh2_phone": tri_121_mh2_phone,
+        "122_mh2_web": tri_122_mh2_web, "123_mh2_dx": tri_123_mh2_dx, "124_mh2_tx": tri_124_mh2_tx,
+        "125_am_name": tri_125_am_name, "126_am_addr": tri_126_am_addr, "127_am_phone": tri_127_am_phone,
+        "128_am_web": tri_128_am_web, "129_am_dx": tri_129_am_dx, "130_am_sym": tri_130_am_sym,
+        "131_am_tx": tri_131_am_tx, "132_am_comments": tri_132_am_comments,
+        "133_ph_name": tri_133_ph_name, "134_ph_phone": tri_134_ph_phone, "135_ph_web": tri_135_ph_web,
+        "136_ph_addr": tri_136_ph_addr, "137_ph_med1": tri_137_ph_med1, "138_ph_med2": tri_138_ph_med2,
+        "139_ph_comments": tri_139_ph_comments, "140_ph_med3": tri_140_ph_med3,
+        "141_affirm": tri_141_affirm, "142_ip": tri_142_ip, "143_jornaya": tri_143_jornaya,
+        "144_reported": tri_144_reported, "145_legacy_ipdob": str(tri_145_legacy_ipdob),
+        "146_claim_for": tri_146_claim_for, "147_legacy_dod": str(tri_147_legacy_dod),
+        "148_legacy_state": tri_148_legacy_state, "149_role": tri_149_role2,
+        "150_marital": tri_150_marital, "151_timing": tri_151_timing, "152_title": tri_152_title,
+        "153_reported2": tri_153_reported2, "154_has_incdate": tri_154_has_incdate,
+        "155_rel": tri_155_rel, "156_rel": tri_156_rel, "157_rel": tri_157_rel, "158_rel": tri_158_rel, "159_rel": tri_159_rel,
+        "160_perm": tri_160_perm,
+        "Triten_earliest_report": (str(tri_earliest_report) if tri_earliest_report else ""),
+        "Triten_14day_check": tri_14_check
     }
+
+    # Footer actions
     colA, colB = st.columns([1,1])
     with colA:
-        if st.button("Back to Intake"):
+        if st.button("Back to Intake", key="tri_back_intake"):
             st.session_state.step = "intake"; st.rerun()
     with colB:
-        if st.button("Export Triten CSV"):
-            payload = {"firm":"Triten"}
-            if "intake_payload" in st.session_state: payload.update(st.session_state.intake_payload)
-            payload.update(st.session_state.answers_tri)
-            df = pd.DataFrame([payload])
-            csv_bytes = df.to_csv(index=False).encode("utf-8")
-            st.download_button("Download triten_followup.csv", data=csv_bytes, file_name="triten_followup.csv", mime="text/csv", key="dl_tri_csv_btn")
+        payload = {"firm":"Triten"}
+        if "intake_payload" in st.session_state:
+            payload.update(st.session_state.intake_payload)
+        payload.update(st.session_state.answers_tri)
+        df = pd.DataFrame([payload])
+        csv_bytes = df.to_csv(index=False).encode("utf-8")
+        st.download_button("Download triten_followup.csv", data=csv_bytes, file_name="triten_followup.csv", mime="text/csv", key="dl_tri_csv_btn")
 
 # =========================
 # ROUTER
