@@ -777,7 +777,7 @@ def render_wagstaff_questions():
             "99_ph_med1": ph_med1, "100_ph_med2": ph_med2, "101_ph_comments": ph_comments, "102_ph_med3": ph_med3,
             # 103–105
             "103_affirm": affirm, "104_ip_address": ip_addr, "105_jornaya": jornaya
-        })
+        }
         st.success("Wagstaff answers saved.")
 
     # footer actions
