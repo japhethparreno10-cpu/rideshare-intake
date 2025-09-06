@@ -227,73 +227,7 @@ def render_intake_and_decision():
         verbal_only = st.toggle("Verbal abuse only (no sexual contact/acts)", value=False)
     with dq3:
         attempt_only = st.toggle("Attempt/minor contact only", value=False)
-            # =========================
-    # QUICK TRITEN QUALIFIERS (Q1–Q10)
-    # =========================
-    st.markdown("---")
-    st.subheader("Quick Triten Qualifiers")
 
-    # Q1 Narrative
-    tri_q1_narr = st.text_area(
-        "1. I know it’s not always easy to talk about the incident and we appreciate you trusting us with these details. "
-        "Can you please describe what happened in your own words. (Allow claimant to speak freely.)",
-        key="tri_q1_narr",
-        placeholder="Describe what happened, in your own words…"
-    )
-    if tri_q1_narr.strip():
-        script_block(
-            'Agent Response: Thank you for sharing that with me. You said "[mirror key words]" — and that sounds incredibly difficult. '
-            "I want you to know this space is confidential, and you're doing the right thing by speaking up."
-        )
-
-    # Q2 Company – reuse existing 'company'
-    st.caption("2. Which Rideshare company did you use?")
-    script_block("Agent Response: [Rideshare company name], got it. That helps the law firm determine who may be held responsible and verify who operated the ride at the time. You’re doing great.")
-
-    # Q3 Receipt – reuse existing 'receipt'
-    st.caption("3. Are you able to reproduce the ride share receipt to show proof of the ride? (If not, DQ)")
-    if receipt:
-        script_block("If Yes: Okay, that’s great you can get the receipt for the ride. That is one of the most important pieces of proof we need that will link your rideshare trip to the incident.")
-    else:
-        script_block("If No: Okay, so you cannot check it in your email or on the app? That is one of the most important pieces of proof we need that will link your rideshare trip to the incident. [Refer the claimant to instructions on obtaining the receipt through email or the app.]")
-
-    # Q4 Incident Date – reuse existing 'incident_date'
-    st.caption("4. Do you have the Date the incident occurred?")
-    script_block("Agent Response: Got it. The date was [repeat date]. The timing really helps us document everything properly and connect the incident with the Rideshare trip. So thank you for that.")
-
-    # Q5 Reported To – reuse existing 'reported_to'
-    st.caption("5. Did you report the incident to anyone, like the Rideshare Company, Police, Therapist, Physician, or Friend or Family Member?")
-    if reported_to:
-        script_block("If Reported: Okay, that’s good that you reported it to [repeat answer] — thank you. That helps show you took steps to get help, and that can support your case. It takes a lot of strength.")
-    else:
-        script_block("If Not Reported: Okay, so you didn’t tell anyone that might be able to corroborate your story. That can make it difficult to pursue. Let me speak with my supervisor, but based upon the guidelines, the law firm may not be accepting cases where the victim did not report it to anyone.")
-
-    # Q6 State – reuse existing 'state'
-    st.caption("6. What state did this happen?")
-    script_block("Agent Response: Okay. [Repeat state]. Thank you.")
-
-    # Q7 Inside/near – reuse existing 'inside_near'
-    st.caption("7. Did the incident occur while utilizing the Rideshare service, either inside or just outside the vehicle?")
-    if inside_near:
-        script_block("If Yes: Okay. So, it happened [repeat where happened]. Thank you. Knowing where it happened while using the Rideshare helps confirm that it’s within the scope of the Rideshare’s responsibility, which includes providing a safe means of transportation.")
-
-    # Q8 How submitted to Rideshare – reuse 'rs_submit_how'
-    st.caption("8. If submitted to Rideshare: How did you submit the report to Uber or Lyft?")
-    script_block("Agent Response: Okay, so you submitted it through [email/app]. That’s helpful — thank you for sharing that. Some survivors have used the app, and others reached out by email, so either is totally fine.")
-
-    # Q9 Response from Rideshare – reuse 'rs_received_response'
-    st.caption("9. Did you receive a response from Uber or Lyft?")
-    script_block("Agent Response: Got it — so they [did/did not] respond. That can be really frustrating, especially when you're expecting someone to acknowledge what happened.")
-
-    # Q10 Felony/criminal history – reuse existing toggle via session state
-st.caption("10. So the law firm can be prepared for any character issues, do you have any felonies or criminal history?")
-felony_current = st.session_state.get("felony_record", False)
-if felony_current:
-    script_block(
-        "If Yes: We ask this to ensure there are no legal issues that could impact or weaken your case. "
-        "It helps us prepare in case the other side tries to use your past against you. "
-        "This is a standard part of handling your case and doesn’t reflect on your character."
-    )
     st.subheader("Acts (check what applies)")
     c1, c2 = st.columns(2)
     with c1:
@@ -305,7 +239,7 @@ if felony_current:
         masturb = st.checkbox("Masturbation Observed")
         kidnap = st.checkbox("Kidnapping Off-Route w/ Threats")
         imprison = st.checkbox("False Imprisonment w/ Threats")
-        felony = st.toggle("Client has felony record", value=False, key="felony_record")
+        felony = st.toggle("Client has felony record", value=False)
 
     st.subheader("Wrongful Death")
     wd_col1, wd_col2 = st.columns([1,2])
@@ -843,7 +777,7 @@ def render_wagstaff_questions():
             "99_ph_med1": ph_med1, "100_ph_med2": ph_med2, "101_ph_comments": ph_comments, "102_ph_med3": ph_med3,
             # 103–105
             "103_affirm": affirm, "104_ip_address": ip_addr, "105_jornaya": jornaya
-        }
+        })
         st.success("Wagstaff answers saved.")
 
     # footer actions
@@ -1330,7 +1264,3 @@ elif st.session_state.step == "firm_questions":
         render_triten_questions()
     else:
         st.warning("No firm selected. Returning to intake."); st.session_state.step="intake"; st.rerun()
-
-
-
-
