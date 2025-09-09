@@ -166,11 +166,12 @@ def render():
     # Q1
     st.markdown("**Q1. In your own words, please feel free to describe what happened during the ride.**")
     narr = st.text_area("Caller narrative", key="q1_narr")
+    # Empathy for Q1 — always present once typed
     if narr.strip():
         script_block(
-            "“Thank you for sharing that. What you’ve described is extremely difficult, and your feelings are valid. "
-            "You’re not alone here. I’m here to listen, to move at your pace, and to protect your story. "
-            "If anything is hard to say, take your time—we can pause whenever you need.”"
+            "“Thank you for trusting me with that. What you’ve shared is painful and important. "
+            "You’re in control of this conversation, and we’ll move at your pace. "
+            "If anything feels hard to say, we can take a moment and continue when you’re ready.”"
         )
 
     # Q2
@@ -183,6 +184,12 @@ def render():
     st.markdown("**Pickup / Drop-off (extension to Q2)**")
     pickup = st.text_input("Pickup location (address/description)", key="pickup")
     dropoff = st.text_input("Drop-off location (address/description)", key="dropoff")
+    # Empathy/ack for Pickup/Drop-off
+    if pickup.strip() or dropoff.strip():
+        script_block(
+            "“Appreciate those locations — route details help establish venue and jurisdiction, "
+            "and they’re often key for the attorneys when they request records.”"
+        )
 
     # Q3
     st.markdown("**Q3. Do you have a receipt for the ride (in-app or email)?**")
@@ -197,8 +204,8 @@ def render():
         receipt_evidence.append(f"Other: {receipt_evidence_other.strip()}")
     if receipt_evidence:
         script_block(
-            f"“Appreciate you gathering those: {', '.join(receipt_evidence)}. "
-            "Receipts and screenshots are powerful evidence linking the ride to your account.”"
+            f"“Thank you for gathering {', '.join(receipt_evidence)}. "
+            "Receipts and screenshots are strong proof that tie the ride to your account.”"
         )
 
     if not receipt:
@@ -208,6 +215,44 @@ def render():
             "<br>(Msg Rates Apply. Txt STOP to cancel/HELP for help)</span></div>",
             unsafe_allow_html=True
         )
+
+    # >>> PROOF OPTIONS + UPLOADER (moved here with Q3) <<<
+    st.markdown("**How would you like to send documentation (receipts/screenshots/ID/therapy notes/prescriptions)? (Skip if already given)**")
+    proof_methods = st.multiselect(
+        "Choose options",
+        ["Secure camera link (we text you a link)", "Email to jay@advocaterightscenter.com", "FedEx/UPS scan/fax from store"],
+        key="proof_methods"
+    )
+    if proof_methods:
+        script_block("“Perfect — we’ll keep it simple and secure to share your documents.”")
+
+    # Context tips based on selection
+    if "Email to jay@advocaterightscenter.com" in proof_methods:
+        st.markdown(
+            "<div class='callout'><b>Email Instructions</b><br>"
+            "<span class='copy'>Send photos/PDFs to <b>jay@advocaterightscenter.com</b>. "
+            "In the app: Ride History → select ride → “Resend Receipt.”</span></div>",
+            unsafe_allow_html=True
+        )
+    if "Secure camera link (we text you a link)" in proof_methods:
+        st.markdown(
+            "<div class='note-muted'>We’ll send a one-time secure link that opens your phone’s camera to capture the document.</div>",
+            unsafe_allow_html=True
+        )
+        st.button("Send secure upload link (placeholder)")
+    if "FedEx/UPS scan/fax from store" in proof_methods:
+        st.markdown(
+            "<div class='note-muted'>Ask staff to scan/fax to <b>jay@advocaterightscenter.com</b>. Keep the receipt for your records.</div>",
+            unsafe_allow_html=True
+        )
+
+    proof_uploads = st.file_uploader(
+        "Upload proof now (ride receipt, therapy/medical note, police confirmation) — images or PDFs",
+        type=["pdf", "png", "jpg", "jpeg", "heic"],
+        accept_multiple_files=True,
+        key="proof_uploads"
+    )
+    uploaded_names = [f.name for f in (proof_uploads or [])]
 
     # ---- EDUCATION #1 ----
     script_block(
@@ -379,29 +424,12 @@ def render():
     felony = (felony_answer == "Yes")
 
     # =========================
-    # Settlement Process & Proof
+    # Settlement Process (proof moved earlier with Q3)
     # =========================
-    st.markdown("### Settlement Process & Request for Proof")
-
+    st.markdown("### Settlement Process")
     script_block(
         "Here’s what to expect: after discovery, the court schedules four bellwether test trials — real trials that guide settlement ranges for everyone else.\n"
         "That means you won’t have to retell your story in court. Your records and documents will speak for you, and your settlement will be based on your individual experience."
-    )
-
-    proof_methods = st.multiselect(
-        "How would you like to send documentation (receipts/screenshots/ID/therapy notes/prescriptions)? (Skip if already given)",
-        ["Secure camera link (we text you a link)", "Email to jay@advocaterightscenter.com", "FedEx/UPS scan/fax from store"],
-        key="proof_methods"
-    )
-
-    if proof_methods:
-        script_block("“Perfect — we’ll make it easy and secure to share those documents.”")
-
-    proof_uploads = st.file_uploader(
-        "Upload proof now (ride receipt, therapy/medical note, police confirmation) — images or PDFs",
-        type=["pdf", "png", "jpg", "jpeg", "heic"],
-        accept_multiple_files=True,
-        key="proof_uploads"
     )
 
     # ---- EDUCATION #4 ----
@@ -549,11 +577,10 @@ def render():
         badge(triten_ok, "Eligible" if triten_ok else "Not Eligible")
 
     # =========================
-    # ASSIGN LAW FIRM (drives Law Firm Note)
+    # ASSIGN LAW FIRM
     # =========================
     st.subheader("Assign Law Firm")
     firm_options = ["Wagstaff Law Firm", "Triten Law Group", "Other (type name)"]
-    # Smart default
     if wag_ok:
         default_idx = 0
     elif triten_ok:
@@ -565,7 +592,6 @@ def render():
     if assigned_firm_choice == "Other (type name)":
         custom_firm_name = st.text_input("Enter firm name", key="custom_firm_name").strip()
 
-    # Map to header/short code
     def firm_header_and_short(choice, custom):
         if choice == "Wagstaff Law Firm":
             return "RIDESHARE Waggy | Retained", "Waggy", "Wagstaff Law Firm"
@@ -576,10 +602,11 @@ def render():
 
     note_header, firm_short, assigned_firm_name = firm_header_and_short(assigned_firm_choice, custom_firm_name)
 
-    # ========= Diagnostics =========
+    # =========================
+    # Diagnostics (Wagstaff / Triten)
+    # =========================
     st.subheader("Diagnostics")
 
-    # Wagstaff diagnostics
     st.markdown("#### Wagstaff")
     wag_lines = []
     if tier_label == "Unclear":
@@ -630,7 +657,6 @@ def render():
         )
     st.markdown("<div class='kv'>" + "\n".join(wag_lines) + "</div>", unsafe_allow_html=True)
 
-    # Triten diagnostics
     st.markdown("#### Triten")
     tri_lines = []
     if tier_label == "Unclear":
@@ -652,7 +678,9 @@ def render():
     tri_lines.extend([f"• {x}" for x in tri_disq])
     st.markdown("<div class='kv'>" + "\n".join(tri_lines) + "</div>", unsafe_allow_html=True)
 
-    # ========= SUMMARY TABLE =========
+    # =========================
+    # Summary
+    # =========================
     st.subheader("Summary")
     sol_end_str = ("No SOL" if sol_years is None else (fmt_dt(sol_end) if sol_end else "—"))
     wag_deadline_str = ("N/A (No SOL)" if sol_years is None else (fmt_dt(wagstaff_deadline) if wagstaff_deadline else "—"))
@@ -681,7 +709,9 @@ def render():
     }
     st.dataframe(pd.DataFrame([decision]), use_container_width=True, height=340)
 
-    # ========= DETAILED REPORT =========
+    # =========================
+    # Detailed Report — Elements of Statement of the Case
+    # =========================
     st.subheader("Detailed Report — Elements of Statement of the Case for RIDESHARE")
 
     earliest_channels = []
@@ -726,7 +756,6 @@ def render():
     add_line(18, f"Wagstaff file-by (SOL−45d): {('N/A (No SOL)' if sol_years is None else fmt_dt(wagstaff_deadline))}")
     add_line(19, f"Triten 14-day check: {'OK (≤14 days)' if triten_report_ok else ('Not OK' if earliest_report_date else 'Unknown')}")
     add_line(20, f"Company policy note: Wagstaff = Uber & Lyft; Triten = Uber & Lyft")
-    uploaded_names = [f.name for f in (proof_uploads or [])]
     add_line(21, f"Proof uploaded now: {', '.join(uploaded_names) if uploaded_names else 'None uploaded'}")
     add_line(22, f"Proof delivery method(s): {join_list(proof_methods)}")
     add_line(23, f"SSN last 4 (optional): {ssn_last4 or '—'} | Full SSN on file: {'Yes' if full_ssn_on_file else 'No'}")
@@ -735,7 +764,7 @@ def render():
     st.markdown(f"<div class='copy'>{elements}</div>", unsafe_allow_html=True)
 
     # =========================
-    # LAW FIRM NOTE (Copy & Send) — follows assignment
+    # LAW FIRM NOTE (Copy & Send)
     # =========================
     st.subheader("Law Firm Note (Copy & Send)")
 
@@ -750,7 +779,6 @@ def render():
     note_state_id = st.checkbox("State ID", value=('gov_id' in locals() and gov_id), key="note_state_id")
     note_extra = st.text_area("Additional note", value="", key="note_extra")
 
-    # Tier format: "2 Case"
     tier_case_str = "Unclear"
     if tier_label.startswith("Tier 1"):
         tier_case_str = "1 Case"
@@ -760,7 +788,6 @@ def render():
     created_str = TODAY.strftime("%B %d, %Y")
     company_upper = (company or "").upper()
 
-    # Build the shareable note (header follows firm)
     note_lines = [
         f"{note_header}",
         f"{caller_full_name or ''}".strip(),
@@ -787,7 +814,6 @@ def render():
     lawfirm_note = "\n".join(note_lines)
     st.markdown(f"<div class='copy'>{lawfirm_note}</div>", unsafe_allow_html=True)
 
-    # ===== Downloads: Law Firm Note (txt)
     st.download_button(
         "Download Law Firm Note (.txt)",
         data=lawfirm_note.encode("utf-8"),
@@ -795,7 +821,7 @@ def render():
         mime="text/plain"
     )
 
-    # ===== Download: Detailed Report as TXT (Notepad-friendly)
+    # Notepad-friendly Detailed Report
     detailed_report_txt = "Detailed Report — Elements of Statement of the Case for RIDESHARE\n\n" + elements
     st.download_button(
         "Download Detailed Report (.txt)",
@@ -804,7 +830,9 @@ def render():
         mime="text/plain"
     )
 
-    # ========= EXPORT (XLSX if engine available + CSV)
+    # =========================
+    # Export (XLSX if engine available + CSV)
+    # =========================
     st.subheader("Export")
 
     export_payload = {
