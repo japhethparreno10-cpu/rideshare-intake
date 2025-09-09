@@ -16,10 +16,8 @@ h2 {font-size: 1.5rem !important; margin-top: 0.6rem;}
 .badge-ok   {background:#16a34a; color:white; padding:12px 16px; border-radius:12px; font-size:22px; text-align:center;}
 .badge-no   {background:#dc2626; color:white; padding:12px 16px; border-radius:12px; font-size:22px; text-align:center;}
 .badge-note {background:#1f2937; color:#f9fafb; padding:8px 12px; border-radius:10px; font-size:14px; display:inline-block;}
-.note-wag {border:1px solid #c7f0d2; border-left:8px solid #16a34a; border-radius:8px; padding:10px 12px; margin:8px 0; background:#f0fdf4; color:#064e3b;}
-.note-tri {border:1px solid #cfe8ff; border-left:8px solid #2563eb; border-radius:8px; padding:10px 12px; margin:8px 0; background:#eff6ff; color:#1e3a8a;}
 .note-muted {border:1px dashed #d1d5db; border-radius:8px; padding:10px 12px; margin:8px 0; background:#f9fafb; color:#374151;}
-.script {border-left:4px solid #9ca3af; background:#f3f4f6; color:#111827; padding:12px 14px; border-radius:8px; margin:8px 0 12px 0; font-size:0.97rem;}
+.script {border-left:4px solid #9ca3af; background:#f3f4f6; color:#111827; padding:12px 14px; border-radius:8px; margin:8px 0 12px 0; font-size:0.97rem; white-space:pre-wrap;}
 .callout {border-left:6px solid #2563eb; background:#eef2ff; color:#1e3a8a; padding:12px 14px; border-radius:8px; margin:8px 0 12px 0;}
 .small {font-size: 0.9rem; color:#4b5563;}
 hr {border:0; border-top:1px solid #e5e7eb; margin:12px 0;}
@@ -46,7 +44,6 @@ TORT_SOL = {
     "Missouri":5,
     "Maine":6,"North Dakota":6,
 }
-
 STATE_ALIAS = {"Washington DC": "D.C.", "District of Columbia": "D.C."}
 STATES = sorted(set(list(TORT_SOL.keys()) + ["D.C."]))
 
@@ -136,10 +133,10 @@ def render():
     script_block(
         "INTRODUCTION\n"
         "Thank you for calling the Advocate Rights Center, this is **[Your Name]**. How are you doing today?\n\n"
-        "May I have your **full name**, and then your **full legal name** exactly as it appears on your ID?\n\n"
-        "Before we continue, may I have your **permission to record** this call for legal and training purposes? "
+        "May I have your full name, and then your full legal name exactly as it appears on your ID?\n\n"
+        "Before we continue, may I have your permission to record this call for legal and training purposes? "
         "It will remain private and confidential, and it’s never filed publicly unless you approve and a case goes to court. "
-        "Fewer than 1 in 1,000 cases ever do, since most resolve through settlement."
+        "Less than 1 in 1,000 cases ever do, since most resolve through settlement."
     )
     caller_full_name = st.text_input("Full name (as provided verbally)", key="caller_full_name")
     caller_legal_name = st.text_input("Full legal name (exact on ID)", key="caller_legal_name")
@@ -152,12 +149,16 @@ def render():
     # =========================
     st.markdown("### 1) Story & First-Level Qualification")
 
-    # Q1
-    st.markdown("**Q1. Describe what happened during your ride.**")
+    # Q1 — EXACT WORDING REQUESTED
+    st.markdown("**Q1. In your own words, please feel free to describe what happened during the ride.**")
     narr = st.text_area("Caller narrative", key="q1_narr")
+
+    # Rapport — IMPROVED
     script_block(
-        "Rapport: That must have been terrifying. I’m so sorry you experienced that. "
-        "Thank you for trusting me with your story."
+        "Rapport:\n"
+        "Thank you for trusting me with something so personal. What you’re feeling right now is valid. "
+        "You’re not alone, and you don’t have to carry this by yourself. We’ll go step by step, at your pace, "
+        "and I’ll make sure your story is heard accurately and respectfully."
     )
 
     # Q2
@@ -175,7 +176,6 @@ def render():
     receipt_evidence_other = st.text_input("If Other, describe", key="receipt_evidence_other")
     if receipt_evidence_other and "Other" not in receipt_evidence:
         receipt_evidence.append(f"Other: {receipt_evidence_other.strip()}")
-
     if not receipt:
         st.markdown(
             "<div class='callout'><b>Text to send:</b><br>"
@@ -184,13 +184,16 @@ def render():
             unsafe_allow_html=True
         )
 
-    # ---- Education Insert #1 (after Q1–Q3) ----
+    # ---- EDUCATION #1 — EXACT TEXT YOU PROVIDED ----
     script_block(
-        "EDUCATION #1 — How This Happened\n"
-        "Uber and Lyft have been exposed for failing to screen drivers, ignoring complaints, and misleading riders about safety. "
-        "The New York Times reported sealed court records showing **over 400,000** sexual assault/misconduct reports to Uber from 2017–2022 "
-        "— about **one every 8 minutes** — while Uber publicly admitted only a small fraction of that. "
-        "By stepping forward, survivors help hold these companies accountable and make rides safer."
+        "HOW THIS HAPPENED →  EDUCATE CLIENT / SAFETY ZONE\n"
+        "Well, let me tell you what people have uncovered about Rideshares and why people like you are coming forward. "
+        "And again, I appreciate you trusting us with this.\n\n"
+        "Uber & Lyft have been exposed for improperly screening drivers, failing to remove dangerous drivers, and misrepresenting its safety practices.\n\n"
+        "For example, the New York Times uncovered sealed court documents showing that over 400,000 incidents of sexual assault and misconduct were reported to Uber between 2017 and 2022 . . . which is about 1 incident every 8 minutes.\n\n"
+        "[[ Now when you consider that Uber originally only reported about 12,500 incidents during that same period, you can argue the company has been seriously misleading the level of safety it offers passengers. ]]\n\n"
+        "Now, we know many people don’t report these incidents. So, coming forward helps you and others obtain justice and compensation. "
+        "[[ And, it truly does help force Uber & Lyft to pay for their negligence, and provide real safety measures so these incidents stop happening.]]"
     )
 
     st.markdown("---")
@@ -213,7 +216,6 @@ def render():
         ["Rideshare Company","Physician","Friend or Family Member","Therapist","Police Department","NO (DQ, UNLESS TIER 1 OR MINOR)"],
         key="q5_reported"
     )
-
     report_dates = {}
     family_report_dt = None
     if "Rideshare Company" in reported_to:
@@ -231,20 +233,20 @@ def render():
         family_report_dt = datetime.combine(ff_date, ff_time)
 
     # Q6
-    st.markdown("**Q6. Where did it happen?**")
+    st.markdown("**Q6. Did the incident happen inside the car, just outside, or continue after you exited?**")
     scope_choice = st.selectbox(
-        "Inside the car, just outside, or in furtherance after exiting?",
+        "Select best fit",
         ["Inside the car", "Just outside the car", "Furtherance from the car", "Unclear"],
         key="scope_choice"
     )
     inside_near = scope_choice in ["Inside the car", "Just outside the car", "Furtherance from the car"]
 
-    # ---- Education Insert #2 (after Q4–Q6) ----
+    # ---- EDUCATION #2 — EXACT TEXT YOU PROVIDED ----
     script_block(
-        "EDUCATION #2 — The “Safe Rides Fee”\n"
-        "Uber introduced a $1 **Safe Rides Fee** years ago, claiming it funded safety initiatives like background checks and technology upgrades. "
-        "Investigations later found much of the estimated **$500 million** collected wasn’t directly used for those improvements. "
-        "The fee was eventually renamed the **“booking fee.”** Survivors were paying for safety that often didn’t materialize."
+        "Education Insert #2 — “Safe Rides Fee”\n"
+        "Jay: “____, what’s especially troubling is that Uber and Lyft have had knowledge of these dangers since at least 2014. \n"
+        "That year, Uber introduced a $1 ‘Safe Rides Fee’ — claiming it funded driver checks and safety upgrades. But investigations found that most of the $500 million collected went to profit, not safety.\n"
+        "They later just renamed it a ‘booking fee.’ Survivors were paying for safety that never arrived.”"
     )
 
     st.markdown("---")
@@ -271,22 +273,22 @@ def render():
     medication_name = st.text_input("Medication (optional)", key="medication_name")
     pharmacy_name = st.text_input("Pharmacy (optional)", key="pharmacy_name")
 
-    # ---- Education Insert #3 (after Q7–Q9) ----
+    # ---- EDUCATION #3 — EXACT TEXT YOU PROVIDED ----
     script_block(
-        "EDUCATION #3 — Law Firm & Contingency\n"
-        "You may have a valid case. You hire the law firm on **contingency** — no upfront costs, no out-of-pocket fees; "
-        "you only owe if there’s a recovery. We are the intake center for **The Wagstaff Law Firm**. Their attorneys are nationally recognized "
-        "(many named **Super Lawyers**) and have been appointed to multiple **Plaintiff Steering Committees** in major corporate-negligence cases. "
-        "They’re applying that leadership to hold Uber and Lyft accountable."
+        "Education Insert #3 — Law Firm & Contingency\n"
+        "Jay: “____, based on what you’ve told me, you Might have a valid case. Here’s how pursuing a settlement works: \n"
+        "You hire the law firm on a contingency basis — no upfront costs, no out-of-pocket fees. You only owe if they win you a recovery.\n"
+        "We are the intake center for The Wagstaff Law Firm. Their attorneys are nationally recognized — many named Super Lawyers (top 5% of all attorneys). "
+        "Judges across the country have appointed them to nine national Plaintiff Steering Committees, reserved for the top trial lawyers in corporate negligence cases.\n"
+        "They’re now applying that same leadership to hold Uber and Lyft accountable for failing survivors like you.”"
     )
 
     st.markdown("---")
 
     # =========================
-    # Contact & Ride Details (supporting the script)
+    # Contact & Ride Details (supporting)
     # =========================
     st.markdown("### Contact & Ride Details")
-
     caller_phone = st.text_input("Best phone number", key="caller_phone")
     caller_email = st.text_input("Best email", key="caller_email")
 
@@ -307,16 +309,13 @@ def render():
     felony = st.toggle("Any felony conviction history", value=False, key="q10_felony")
 
     # =========================
-    # Request for Proof & Process
+    # Settlement Process & Proof
     # =========================
     st.markdown("### Settlement Process & Request for Proof")
-
     script_block(
-        "After discovery, courts schedule **bellwether test trials** — real trials that guide settlement ranges for everyone else. "
-        "That means you typically **won’t have to retell your story in court**; your records and documents will speak for you, "
-        "and your settlement is based on your **individual** experience."
+        "Here’s what to expect: after discovery, the court schedules four bellwether test trials — real trials that guide settlement ranges for everyone else.\n"
+        "That means you won’t have to retell your story in court. Your records and documents will speak for you, and your settlement will be based on your individual experience."
     )
-
     proof_methods = st.multiselect(
         "How would you like to send documentation (receipts/screenshots/ID/therapy notes/prescriptions)?",
         ["Secure camera link (we text you a link)", "Email to jay@advocaterightscenter.com", "FedEx/UPS scan/fax from store"],
@@ -326,7 +325,7 @@ def render():
         st.markdown(
             "<div class='callout'><b>Email Instructions</b><br>"
             "<span class='copy'>Send photos/PDFs to <b>jay@advocaterightscenter.com</b>. "
-            "In the app: Ride History → select ride → “Resend Receipt.”</span></div>",
+            "In the rideshare app: Ride History → select ride → “Resend Receipt.”</span></div>",
             unsafe_allow_html=True
         )
     if "Secure camera link (we text you a link)" in proof_methods:
@@ -340,7 +339,6 @@ def render():
             "<div class='note-muted'>Ask staff to scan/fax to <b>jay@advocaterightscenter.com</b>. Keep the receipt for your records.</div>",
             unsafe_allow_html=True
         )
-
     proof_uploads = st.file_uploader(
         "Upload proof now (ride receipt, therapy/medical note, police confirmation) — images or PDFs",
         type=["pdf", "png", "jpg", "jpeg", "heic"],
@@ -348,25 +346,37 @@ def render():
         key="proof_uploads"
     )
 
-    # ---- Education Insert #4 (timeline) ----
+    # ---- EDUCATION #4 — EXACT TEXT YOU PROVIDED ----
     script_block(
-        "EDUCATION #4 — Timeline for Settlement Distribution\n"
-        "Once bellwether trials conclude, results typically spark **settlement negotiations**. "
-        "That’s when **distributions begin** — survivors don’t have to wait for every trial to finish."
+        "Jay: “____, once the bellwether trials conclude, those results usually spark settlement negotiations. "
+        "That’s when distributions begin — survivors don’t have to wait for every trial to finish. "
+        "The test results give both sides the framework to resolve cases sooner.”"
     )
 
     # =========================
-    # SSN (last-4 option)
+    # Identity for Records (Optional)
     # =========================
     st.markdown("### Identity for Records (Optional)")
     script_block(
-        "Some providers require identity verification before releasing **medical records**. "
-        "The firm may ask for your Social Security number. If you prefer, you can share just the **last 4 digits** now; "
-        "that is often enough for HIPAA releases."
+        "One final step before we wrap up. Sometimes hospitals and providers require identity verification before they’ll release medical records. "
+        "For that, the firm usually asks for a Social Security number. If you’d rather not share the full number, the last 4 digits are often enough for HIPAA releases."
     )
     ssn_last4 = st.text_input("SSN last 4 (optional)", max_chars=4, key="ssn_last4")
 
+    # =========================
+    # CLOSING — EXACT TEXT YOU PROVIDED
+    # =========================
     st.markdown("---")
+    st.markdown("### 9) Closing")
+    script_block(
+        "Jay: “You’ve done something incredibly brave by calling today and sharing your story, ____.\n"
+        "Here are the next steps:\n\n"
+        "I’ll send you the secure ID upload link and the e-sign forms (retainer + HIPAA).\n\n"
+        "A paralegal will call you at your preferred time — and at that point, they may confirm your Social Security number again for HIPAA releases.\n\n"
+        "Would you like me to repeat any of those steps, or slow down before we wrap up?”\n"
+        "C: “_____.”\n"
+        "Jay (rapport): “You’re very welcome, _____. You did something very strong today.”"
+    )
 
     # =========================
     # INTERNAL ELIGIBILITY SWITCHES (Agent use)
@@ -401,10 +411,9 @@ def render():
         kidnap = st.checkbox("Kidnapping Off-Route w/ Threats", key="act_kidnap")
         imprison = st.checkbox("False Imprisonment w/ Threats", key="act_imprison")
 
-    # ========= Calculations =========
-    used_date = incident_date or TODAY.date()
+    # ========= CALCULATIONS (unchanged core logic) =========
+    used_date = (incident_date or TODAY.date())
     incident_dt = datetime.combine(used_date, incident_time)
-
     act_flags = {
         "Rape/Penetration": 'rape' in locals() and rape,
         "Forced Oral/Forced Touching": 'forced_oral' in locals() and forced_oral,
@@ -431,7 +440,7 @@ def render():
         wagstaff_deadline = sol_end - timedelta(days=45)
         wagstaff_time_ok = TODAY <= wagstaff_deadline
 
-    # Earliest report <= 14d (for Triten example logic)
+    # Earliest report <= 14d
     all_dates = [d for d in report_dates.values() if d]
     if family_report_dt: all_dates.append(family_report_dt.date())
     earliest_report_date = min(all_dates) if all_dates else None
@@ -459,13 +468,13 @@ def render():
             if not within_24h_family_ok:
                 wag_disq.append("Family/Friends-only report exceeded 24 hours after incident → fails Wagstaff rule.")
 
-    # Core must-haves (some switches may be hidden until expander is opened)
+    # Core must-haves
     female_rider_val = 'female_rider' in locals() and female_rider
     gov_id_val = 'gov_id' in locals() and gov_id
     has_atty_val = 'has_atty' in locals() and has_atty
     common_ok = bool(female_rider_val and receipt and gov_id_val and inside_near and (not has_atty_val))
 
-    # === Wagstaff accepts Uber AND Lyft ===
+    # Wagstaff accepts Uber & Lyft
     wag_ok_core = common_ok and wagstaff_time_ok and within_24h_family_ok and base_tier_ok and (not wag_disq)
     wag_ok = wag_ok_core and (company in ("Uber", "Lyft"))
 
@@ -478,7 +487,7 @@ def render():
     if has_atty_val: tri_disq.append("Already has attorney → cannot intake.")
     triten_ok = bool(common_ok and triten_report_ok and base_tier_ok and (not tri_disq))
 
-    # ========= UI: Eligibility badges =========
+    # ========= ELIGIBILITY SNAPSHOT =========
     st.subheader("Eligibility Snapshot")
     b1, b2, b3 = st.columns(3)
     with b1:
@@ -491,10 +500,8 @@ def render():
         st.markdown(f"<div class='badge-note'>Triten</div>", unsafe_allow_html=True)
         badge(triten_ok, "Eligible" if triten_ok else "Not Eligible")
 
-    # ========= Diagnostics =========
+    # ========= DIAGNOSTICS =========
     st.subheader("Diagnostics")
-
-    # Wagstaff diagnostics
     st.markdown("#### Wagstaff")
     wag_lines = []
     if tier_label == "Unclear":
@@ -532,190 +539,4 @@ def render():
     if sol_years is None:
         wag_lines.append("• Wagstaff file-by: not applicable (No SOL).")
     else:
-        wag_lines.append(f"• Wagstaff file-by (SOL − 45 days): {fmt_dt(wagstaff_deadline)} → {'OK' if wagstaff_time_ok else 'Not OK'}.")
-
-    if set(reported_to) == {"Friend or Family Member"} and family_report_dt:
-        delta_hours = (family_report_dt - incident_dt).total_seconds()/3600.0
-        wag_lines.append(f"• Family/Friends-only report delta: {delta_hours:.1f} hours → {'OK (≤24h)' if within_24h_family_ok else 'Not OK (>24h)'}.")
-
-    st.markdown("<div class='kv'>" + "\n".join(wag_lines) + "</div>", unsafe_allow_html=True)
-
-    # Triten diagnostics
-    st.markdown("#### Triten")
-    tri_lines = []
-    if tier_label == "Unclear":
-        tri_lines.append("• Tier unclear (needs Tier 1 or Tier 2 acts).")
-    else:
-        tri_lines.append(f"• Tier = {tier_label}.")
-    tri_lines.append(f"• Common requirements: female={bool(female_rider_val)}, receipt={bool(receipt)}, id={bool(gov_id_val)}, scope={bool(inside_near)}, has_atty={bool(has_atty_val)}.")
-    if earliest_report_date:
-        tri_lines.append(f"• Earliest report date = {fmt_date(earliest_report_date)}; incident = {fmt_date(incident_dt.date())}; Δ = {delta_days} day(s) → {'OK (≤14 days)' if triten_report_ok else 'Not OK (>14 days or negative)'}")
-    else:
-        tri_lines.append("• No earliest report date captured → cannot verify 14-day requirement.")
-    tri_lines.extend([f"• {x}" for x in tri_disq])
-    st.markdown("<div class='kv'>" + "\n".join(tri_lines) + "</div>", unsafe_allow_html=True)
-
-    # ========= SUMMARY TABLE =========
-    st.subheader("Summary")
-    sol_end_str = ("No SOL" if sol_years is None else (fmt_dt(sol_end) if sol_end else "—"))
-    wag_deadline_str = ("N/A (No SOL)" if sol_years is None else (fmt_dt(wagstaff_deadline) if wagstaff_deadline else "—"))
-    report_dates_str = "; ".join([f"{k}: {fmt_date(v)}" for k, v in report_dates.items()]) if report_dates else "—"
-    family_dt_str = fmt_dt(family_report_dt) if family_report_dt else "—"
-
-    decision = {
-        "Full Name": caller_full_name,
-        "Legal Name": caller_legal_name,
-        "Consent Recording": consent_recording,
-        "Phone": caller_phone,
-        "Email": caller_email,
-        "Company": company,
-        "State": state,
-        "Tier": tier_label,
-        "SA category for SOL": category or "—",
-        "Using SA extension?": "Yes" if (category and sol_state in SA_EXT) else "No (general tort)",
-        "SOL rule applied": sol_rule_text,
-        "SOL End (est.)": sol_end_str,
-        "Wagstaff file-by (SOL-45d)": wag_deadline_str,
-        "Reported Dates": report_dates_str,
-        "Family/Friends Report (DateTime)": family_dt_str,
-        "Wagstaff Eligible?": "Eligible" if wag_ok else "Not Eligible",
-        "Triten Eligible?": "Eligible" if triten_ok else "Not Eligible",
-    }
-    st.dataframe(pd.DataFrame([decision]), use_container_width=True, height=320)
-
-    # ========= DETAILED REPORT =========
-    st.subheader("Detailed Report — Elements of Statement of the Case for RIDESHARE")
-
-    earliest_channels = []
-    if earliest_report_date:
-        for k, v in report_dates.items():
-            if v == earliest_report_date:
-                earliest_channels.append(k)
-
-    acts_selected = [k for k, v in act_flags.items() if v and k not in ("Kidnapping Off-Route w/ Threats", "False Imprisonment w/ Threats")]
-    aggr_selected = [k for k in ("Kidnapping Off-Route w/ Threats","False Imprisonment w/ Threats") if act_flags.get(k)]
-
-    line_items = []
-    def add_line(num, text): line_items.append(f"{num}. {text}")
-
-    add_line(1,  f"Caller Full / Legal: {caller_full_name or '—'} / {caller_legal_name or '—'}")
-    add_line(2,  f"Platform: {company}")
-    add_line(3,  f"Receipt Provided: {'Yes' if receipt else 'No'} | Evidence: {join_list(receipt_evidence)}")
-    add_line(4,  f"Incident Date/Time: {(fmt_date(incident_date) if incident_date else 'UNKNOWN')} {incident_time.strftime('%H:%M') if incident_time else ''}")
-    add_line(5,  f"Reported to: {join_list(reported_to)} | Dates: {', '.join([f'{k}: {fmt_date(v)}' for k,v in report_dates.items()]) if report_dates else '—'}")
-    add_line(6,  f"Where it happened (scope): {scope_choice}")
-    add_line(7,  f"Pickup → Drop-off: {pickup or '—'} → {dropoff or '—'} | State: {state}")
-    add_line(8,  f"Injuries — Physical: {'Yes' if injury_physical else 'No'}, Emotional: {'Yes' if injury_emotional else 'No'} | Details: {injuries_summary or '—'}")
-    add_line(9,  f"Provider: {provider_name or '—'} | Facility: {provider_facility or '—'} | Therapy start: {fmt_date(therapy_start) if therapy_start else '—'}")
-    add_line(10, f"Medication: {medication_name or '—'} | Pharmacy: {pharmacy_name or '—'}")
-    add_line(11, f"Rideshare submission: {rs_submit_how or '—'} | Company responded: {'Yes' if rs_received_response else 'No'} | Detail: {rs_response_detail or '—'}")
-    add_line(12, f"Driver profile (if any): {driver_profile or '—'}")
-    add_line(13, f"Phone / Email: {caller_phone or '—'} / {caller_email or '—'}")
-    add_line(14, f"Standard screen — Felony: {'Yes' if felony else 'No'}")
-    add_line(15, f"Acts selected: {join_list(acts_selected)} | Aggravators: {join_list(aggr_selected)}")
-    add_line(16, f"Tier: {tier_label}")
-    add_line(17, f"SOL rule applied: {sol_rule_text} | SOL end: {('No SOL' if sol_years is None else fmt_dt(sol_end))}")
-    add_line(18, f"Wagstaff file-by (SOL−45d): {('N/A (No SOL)' if sol_years is None else fmt_dt(wagstaff_deadline))}")
-    add_line(19, f"Triten 14-day check: {'OK (≤14 days)' if triten_report_ok else ('Not OK' if earliest_report_date else 'Unknown')}")
-    add_line(20, f"Company policy note: Wagstaff = Uber & Lyft; Triten = Uber & Lyft")
-
-    uploaded_names = [f.name for f in (proof_uploads or [])]
-    add_line(21, f"Proof uploaded now: {', '.join(uploaded_names) if uploaded_names else 'None uploaded'}")
-    add_line(22, f"Proof delivery method(s): {join_list(proof_methods)}")
-    add_line(23, f"SSN last 4 (optional): {ssn_last4 or '—'}")
-
-    elements = "\n".join(line_items)
-    st.markdown(f"<div class='copy'>{elements}</div>", unsafe_allow_html=True)
-
-    # ========= EXPORT =========
-    st.subheader("Export")
-    export_payload = {
-        # Caller
-        "FullName": caller_full_name,
-        "LegalName": caller_legal_name,
-        "ConsentRecording": consent_recording,
-        "Phone": caller_phone,
-        "Email": caller_email,
-
-        # Ride & Incident
-        "Company": company,
-        "Pickup": pickup,
-        "Dropoff": dropoff,
-        "State": state,
-        "IncidentDate": fmt_date(incident_date) if incident_date else "UNKNOWN",
-        "IncidentTime": incident_time.strftime("%H:%M"),
-
-        # Evidence
-        "ReceiptProvided": receipt,
-        "ReceiptEvidence": receipt_evidence,
-        "ReceiptEvidenceOther": receipt_evidence_other,
-        "DriverProfile": driver_profile,
-
-        # Reporting
-        "ReportedTo": reported_to,
-        "ReportDates": {k: fmt_date(v) for k,v in report_dates.items()},
-        "FamilyReportDateTime": (fmt_dt(family_report_dt) if family_report_dt else "—"),
-
-        # Company response
-        "SubmittedHow": rs_submit_how,
-        "CompanyResponded": rs_received_response,
-        "CompanyResponseDetail": rs_response_detail,
-
-        # Injuries / Providers / Meds
-        "InjuryPhysical": injury_physical,
-        "InjuryEmotional": injury_emotional,
-        "InjuriesSummary": injuries_summary,
-        "ProviderName": provider_name,
-        "ProviderFacility": provider_facility,
-        "TherapyStartDate": fmt_date(therapy_start) if therapy_start else "—",
-        "Medication": medication_name,
-        "Pharmacy": pharmacy_name,
-
-        # Identity
-        "SSN_Last4": ssn_last4,
-
-        # Agent Switches
-        "FemaleRider": female_rider_val,
-        "GovIDProvided": gov_id_val,
-        "HasAttorney": has_atty_val,
-        "DriverWeapon": (driver_weapon if 'driver_weapon' in locals() else "—"),
-        "ClientCarryingWeapon": (client_weapon if 'client_weapon' in locals() else False),
-        "VerbalOnly": (verbal_only if 'verbal_only' in locals() else False),
-        "AttemptOnly": (attempt_only if 'attempt_only' in locals() else False),
-
-        # Acts
-        "Acts_Selected": acts_selected,
-        "Aggravators_Selected": aggr_selected,
-
-        # SOL Calculations
-        "SA_Category": category or "—",
-        "SA_Extension_Used": (sol_state in SA_EXT) and bool(category),
-        "SOL_Rule_Text": sol_rule_text,
-        "SOL_Years": ("No SOL" if sol_years is None else sol_years),
-        "SOL_End": ("No SOL" if sol_years is None else fmt_dt(sol_end)),
-        "Wagstaff_FileBy": ("N/A (No SOL)" if sol_years is None else fmt_dt(wagstaff_deadline)),
-        "Earliest_Report_Date": (fmt_date(earliest_report_date) if earliest_report_date else "—"),
-        "Earliest_Report_DeltaDays": (None if delta_days is None else int(delta_days)),
-        "Earliest_Report_Channels": earliest_channels,
-        "Triten_14day_OK": triten_report_ok,
-
-        # Eligibility
-        "Eligibility_Wagstaff": "Eligible" if wag_ok else "Not Eligible",
-        "Eligibility_Triten": "Eligible" if triten_ok else "Not Eligible",
-
-        # Proof
-        "Proof_Uploaded_Files": uploaded_names,
-        "Proof_Delivery_Methods": proof_methods,
-
-        # Full text report
-        "Elements_Report": elements.strip()
-    }
-
-    st.download_button(
-        "Download CSV (intake + decision + diagnostics + full report)",
-        data=pd.DataFrame([export_payload]).to_csv(index=False).encode("utf-8"),
-        file_name="intake_decision_with_full_report.csv",
-        mime="text/csv"
-    )
-
-render()
+        wag_lines.append(f"• Wagstaff file-by (SOL − 45 days): {fmt_dt(wagstaff_deadline)} → {'OK' if wagstaff_time_ok else 'Not OK'}
