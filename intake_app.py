@@ -25,7 +25,7 @@ h2 {font-size: 1.5rem !important; margin-top: 0.6rem;}
 hr {border:0; border-top:1px solid #e5e7eb; margin:12px 0;}
 [data-testid="stDataFrame"] div, [data-testid="stTable"] div {font-size: 1rem;}
 .copy {font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; white-space:pre-wrap;}
-.kv {font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;}
+.kv {font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -308,8 +308,10 @@ def render():
     # Core must-haves
     common_ok = bool(female_rider and receipt and gov_id and inside_near and (not has_atty))
 
+    # === UPDATED: Wagstaff accepts Uber AND Lyft ===
     wag_ok_core = common_ok and wagstaff_time_ok and within_24h_family_ok and base_tier_ok and (not wag_disq)
-    wag_ok = wag_ok_core and (company == "Uber")
+    wag_ok = wag_ok_core and (company in ("Uber", "Lyft"))
+
     tri_disq = []
     if verbal_only: tri_disq.append("Verbal abuse only → does not qualify.")
     if attempt_only: tri_disq.append("Attempt/minor contact only → does not qualify.")
@@ -341,8 +343,10 @@ def render():
     else:
         wag_lines.append(f"• Tier = {tier_label}.")
 
-    if company != "Uber":
-        wag_lines.append(f"• Company policy: Wagstaff = Uber only → selected {company}.")
+    # === UPDATED company policy line for Wagstaff ===
+    if company not in ("Uber", "Lyft"):
+        wag_lines.append(f"• Company policy: Wagstaff = Uber & Lyft → selected {company}.")
+
     if not female_rider: wag_lines.append("• Female rider requirement not met.")
     if not receipt: wag_lines.append("• Receipt not provided.")
     if not gov_id: wag_lines.append("• ID not provided.")
@@ -476,7 +480,8 @@ def render():
     add_line(32, f"SOL end (if applicable): {('No SOL' if sol_years is None else fmt_dt(sol_end))}")
     add_line(33, f"Wagstaff file-by (SOL − 45d): {('N/A (No SOL)' if sol_years is None else fmt_dt(wagstaff_deadline))}")
     add_line(34, f"Triten 14-day check: {'OK (≤14 days)' if triten_report_ok else ('Not OK' if earliest_report_date else 'Unknown (no report date)')}")
-    add_line(35, f"Company policy note: Wagstaff = Uber only; Triten = Uber & Lyft")
+    # === UPDATED policy note line ===
+    add_line(35, f"Company policy note: Wagstaff = Uber & Lyft; Triten = Uber & Lyft")
     add_line(36, f"Wagstaff Eligibility: {'Eligible' if wag_ok else 'Not Eligible'}")
     add_line(37, f"Triten Eligibility: {'Eligible' if triten_ok else 'Not Eligible'}")
 
