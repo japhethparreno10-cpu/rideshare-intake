@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+import json
+import io
 from datetime import datetime, timedelta, time
 from dateutil.relativedelta import relativedelta
 
@@ -123,6 +125,12 @@ def categorical_brief(flags):
     if flags.get("Kidnapping Off-Route w/ Threats"): buckets.append("kidnapping off-route w/ threats")
     if flags.get("False Imprisonment w/ Threats"): buckets.append("false imprisonment w/ threats")
     return ", ".join(buckets) if buckets else "—"
+
+def to_str(x):
+    try:
+        return json.dumps(x, ensure_ascii=False)
+    except Exception:
+        return str(x)
 
 # =========================
 # APP
@@ -497,7 +505,8 @@ def render():
         wagstaff_time_ok = TODAY <= wagstaff_deadline
 
     # Triten earliest report <= 14d
-    all_dates = [d for d in report_dates.values() if d]
+    report_dates_copy = dict(report_dates)
+    all_dates = [d for d in report_dates_copy.values() if d]
     if family_report_dt: all_dates.append(family_report_dt.date())
     earliest_report_date = min(all_dates) if all_dates else None
     delta_days = (earliest_report_date - incident_dt.date()).days if earliest_report_date else None
@@ -683,20 +692,20 @@ def render():
     # Reported to + per-channel details
     add_line(5,  f"Reported to: {join_list(reported_to)} | Dates: {', '.join([f'{k}: {fmt_date(v)}' for k,v in report_dates.items()]) if report_dates else '—'}")
     if "Friend or Family Member" in reported_to:
-        add_line(5.1, f"Family/Friend Contact: {fam_first or '—'} {fam_last or ''} | Phone: {fam_phone or '—'}")
+        add_line(5.1, f"Family/Friend Contact: {st.session_state.get('fam_first','—')} {st.session_state.get('fam_last','')} | Phone: {st.session_state.get('fam_phone','—')}")
     if "Physician" in reported_to:
-        add_line(5.2, f"Physician: {phys_name or '—'} | Clinic/Hospital: {phys_fac or '—'} | Address: {phys_addr or '—'}")
+        add_line(5.2, f"Physician: {st.session_state.get('phys_name','—')} | Clinic/Hospital: {st.session_state.get('phys_fac','—')} | Address: {st.session_state.get('phys_addr','—')}")
     if "Therapist" in reported_to:
-        add_line(5.3, f"Therapist: {ther_name or '—'} | Clinic/Hospital: {ther_fac or '—'} | Address: {ther_addr or '—'}")
+        add_line(5.3, f"Therapist: {st.session_state.get('ther_name','—')} | Clinic/Hospital: {st.session_state.get('ther_fac','—')} | Address: {st.session_state.get('ther_addr','—')}")
     if "Police Department" in reported_to:
-        add_line(5.4, f"Police Station: {police_station or '—'} | Address: {police_addr or '—'}")
+        add_line(5.4, f"Police Station: {st.session_state.get('police_station','—')} | Address: {st.session_state.get('police_addr','—')}")
     if "Rideshare Company" in reported_to:
-        add_line(5.5, f"Rideshare Company (reported): {rep_rs_company or '—'}")
+        add_line(5.5, f"Rideshare Company (reported): {st.session_state.get('rep_rs_company','—')}")
 
-    add_line(6,  f"Where it happened (scope): {scope_choice}")
+    add_line(6,  f"Where it happened (scope): {st.session_state.get('scope_choice','—')}")
     add_line(7,  f"Pickup → Drop-off: {pickup or '—'} → {dropoff or '—'} | State: {state}")
     add_line(8,  f"Injuries — Physical: {'Yes' if injury_physical else 'No'}, Emotional: {'Yes' if injury_emotional else 'No'} | Details: {injuries_summary or '—'}")
-    add_line(9,  f"Provider: {provider_name or '—'} | Facility: {provider_facility or '—'} | Therapy start: {fmt_date(therapy_start) if therapy_start else '—'}")
+    add_line(9,  f"Provider: {st.session_state.get('provider_name','—')} | Facility: {st.session_state.get('provider_facility','—')} | Therapy start: {fmt_date(therapy_start) if therapy_start else '—'}")
     add_line(10, f"Medication: {medication_name or '—'} | Pharmacy: {pharmacy_name or '—'}")
     add_line(11, f"Rideshare submission: {rs_submit_how or '—'} | Company responded: {'Yes' if rs_received_response else 'No'} | Detail: {rs_response_detail or '—'}")
     add_line(12, f"Phone / Email: {caller_phone or '—'} / {caller_email or '—'}")
@@ -775,8 +784,11 @@ def render():
         mime="text/plain"
     )
 
-    # ========= EXPORT =========
+    # ========= EXPORTS =========
     st.subheader("Export")
+
+    # Build export payload
+    earliest_channels = earliest_channels  # already computed
     export_payload = {
         # Caller
         "FullName": caller_full_name,
@@ -796,24 +808,24 @@ def render():
         # Evidence
         "ReceiptProvided": receipt,
         "ReceiptEvidence": receipt_evidence,
-        "ReceiptEvidenceOther": receipt_evidence_other,
+        "ReceiptEvidenceOther": (st.session_state.get('receipt_evidence_other') or ""),
 
         # Reporting channels & details
         "ReportedTo": reported_to,
         "ReportDates": {k: fmt_date(v) for k, v in report_dates.items()},
         "FamilyReportDateTime": (fmt_dt(family_report_dt) if family_report_dt else "—"),
-        "FamilyFirstName": fam_first,
-        "FamilyLastName": fam_last,
-        "FamilyPhone": fam_phone,
-        "PhysicianName": phys_name,
-        "PhysicianClinicHospital": phys_fac,
-        "PhysicianAddress": phys_addr,
-        "TherapistName": ther_name,
-        "TherapistClinicHospital": ther_fac,
-        "TherapistAddress": ther_addr,
-        "PoliceStation": police_station,
-        "PoliceAddress": police_addr,
-        "ReportedRideshareCompany": rep_rs_company,
+        "FamilyFirstName": st.session_state.get('fam_first',""),
+        "FamilyLastName": st.session_state.get('fam_last',""),
+        "FamilyPhone": st.session_state.get('fam_phone',""),
+        "PhysicianName": st.session_state.get('phys_name',""),
+        "PhysicianClinicHospital": st.session_state.get('phys_fac',""),
+        "PhysicianAddress": st.session_state.get('phys_addr',""),
+        "TherapistName": st.session_state.get('ther_name',""),
+        "TherapistClinicHospital": st.session_state.get('ther_fac',""),
+        "TherapistAddress": st.session_state.get('ther_addr',""),
+        "PoliceStation": st.session_state.get('police_station',""),
+        "PoliceAddress": st.session_state.get('police_addr',""),
+        "ReportedRideshareCompany": st.session_state.get('rep_rs_company',""),
 
         # Company response
         "SubmittedHow": rs_submit_how,
@@ -824,8 +836,8 @@ def render():
         "InjuryPhysical": injury_physical,
         "InjuryEmotional": injury_emotional,
         "InjuriesSummary": injuries_summary,
-        "ProviderName": provider_name,
-        "ProviderFacility": provider_facility,
+        "ProviderName": st.session_state.get('provider_name',""),
+        "ProviderFacility": st.session_state.get('provider_facility',""),
         "TherapyStartDate": fmt_date(therapy_start) if therapy_start else "—",
         "Medication": medication_name,
         "Pharmacy": pharmacy_name,
@@ -839,47 +851,4 @@ def render():
         "GovIDProvided": gov_id_val,
         "HasAttorney": has_atty_val,
         "DriverWeapon": (driver_weapon if 'driver_weapon' in locals() else "—"),
-        "ClientCarryingWeapon": (client_weapon if 'client_weapon' in locals() else False),
-        "VerbalOnly": (verbal_only if 'verbal_only' in locals() else False),
-        "AttemptOnly": (attempt_only if 'attempt_only' in locals() else False),
-
-        # Acts
-        "Acts_Selected": acts_selected,
-        "Aggravators_Selected": aggr_selected,
-
-        # SOL Calculations
-        "SA_Category": category or "—",
-        "SA_Extension_Used": (sol_state in SA_EXT) and bool(category),
-        "SOL_Rule_Text": sol_rule_text,
-        "SOL_Years": ("No SOL" if sol_years is None else sol_years),
-        "SOL_End": ("No SOL" if sol_years is None else fmt_dt(sol_end)),
-        "Wagstaff_FileBy": ("N/A (No SOL)" if sol_years is None else fmt_dt(wagstaff_deadline)),
-        "Earliest_Report_Date": (fmt_date(earliest_report_date) if earliest_report_date else "—"),
-        "Earliest_Report_DeltaDays": (None if delta_days is None else int(delta_days)),
-        "Earliest_Report_Channels": earliest_channels,
-        "Triten_14day_OK": triten_report_ok,
-
-        # Eligibility
-        "Eligibility_Wagstaff": "Eligible" if wag_ok else "Not Eligible",
-        "Eligibility_Triten": "Eligible" if triten_ok else "Not Eligible",
-
-        # Proof
-        "Proof_Uploaded_Files": uploaded_names,
-        "Proof_Delivery_Methods": proof_methods,
-
-        # Lawfirm Note (as rendered)
-        "LawFirmNote": lawfirm_note,
-        "MarketingSource": marketing_source,
-
-        # Full text report
-        "Elements_Report": elements.strip()
-    }
-
-    st.download_button(
-        "Download CSV (intake + decision + diagnostics + full report)",
-        data=pd.DataFrame([export_payload]).to_csv(index=False).encode("utf-8"),
-        file_name="intake_decision_with_full_report.csv",
-        mime="text/csv"
-    )
-
-render()
+        "ClientCarryingWeapon
