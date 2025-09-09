@@ -154,7 +154,7 @@ def render():
     st.markdown("**Q1. In your own words, please feel free to describe what happened during the ride.**")
     narr = st.text_area("Caller narrative", key="q1_narr")
 
-    # Rapport (improved, per request)
+    # Rapport (improved)
     script_block(
         "Rapport:\n"
         "“Thank you for sharing that. What you’ve described is extremely difficult, and your feelings are valid. "
@@ -307,11 +307,13 @@ def render():
     rs_received_response = st.toggle("Company responded", value=False, key="q9_resp_toggle")
     rs_response_detail = st.text_input("If yes, what did they say? (optional)", key="q9_resp_detail")
 
-    st.markdown("**Driver information (if available)**")
-    driver_profile = st.text_input("Driver name/profile details (optional)", key="driver_profile")
-
-    st.markdown("**Standard screening**")
-    felony = st.toggle("Any felony conviction history", value=False, key="q10_felony")
+    # =========================
+    # Standard Screening (verbatim)
+    # =========================
+    st.markdown("**Standard Screening**")
+    script_block("This will not affect your case, So the law firm can be prepared for any character issues, do you have any felonies or criminal history?")
+    felony_answer = st.radio("Please select one", ["No", "Yes"], horizontal=True, key="q10_felony")
+    felony = (felony_answer == "Yes")
 
     # =========================
     # Settlement Process & Proof
@@ -324,7 +326,7 @@ def render():
     )
 
     proof_methods = st.multiselect(
-        "How would you like to send documentation (receipts/screenshots/ID/therapy notes/prescriptions)?",
+        "How would you like to send documentation (receipts/screenshots/ID/therapy notes/prescriptions)? (Skip if already given)",
         ["Secure camera link (we text you a link)", "Email to jay@advocaterightscenter.com", "FedEx/UPS scan/fax from store"],
         key="proof_methods"
     )
@@ -645,20 +647,19 @@ def render():
     add_line(9,  f"Provider: {provider_name or '—'} | Facility: {provider_facility or '—'} | Therapy start: {fmt_date(therapy_start) if therapy_start else '—'}")
     add_line(10, f"Medication: {medication_name or '—'} | Pharmacy: {pharmacy_name or '—'}")
     add_line(11, f"Rideshare submission: {rs_submit_how or '—'} | Company responded: {'Yes' if rs_received_response else 'No'} | Detail: {rs_response_detail or '—'}")
-    add_line(12, f"Driver profile (if any): {driver_profile or '—'}")
-    add_line(13, f"Phone / Email: {caller_phone or '—'} / {caller_email or '—'}")
-    add_line(14, f"Standard screen — Felony: {'Yes' if felony else 'No'}")
-    add_line(15, f"Acts selected: {join_list(acts_selected)} | Aggravators: {join_list(aggr_selected)}")
-    add_line(16, f"Tier: {tier_label}")
-    add_line(17, f"SOL rule applied: {sol_rule_text} | SOL end: {('No SOL' if sol_years is None else fmt_dt(sol_end))}")
-    add_line(18, f"Wagstaff file-by (SOL−45d): {('N/A (No SOL)' if sol_years is None else fmt_dt(wagstaff_deadline))}")
-    add_line(19, f"Triten 14-day check: {'OK (≤14 days)' if triten_report_ok else ('Not OK' if earliest_report_date else 'Unknown')}")
-    add_line(20, f"Company policy note: Wagstaff = Uber & Lyft; Triten = Uber & Lyft")
+    add_line(12, f"Phone / Email: {caller_phone or '—'} / {caller_email or '—'}")
+    add_line(13, f"Standard screen — Felony/Criminal history: {'Yes' if felony else 'No'}")
+    add_line(14, f"Acts selected: {join_list(acts_selected)} | Aggravators: {join_list(aggr_selected)}")
+    add_line(15, f"Tier: {tier_label}")
+    add_line(16, f"SOL rule applied: {sol_rule_text} | SOL end: {('No SOL' if sol_years is None else fmt_dt(sol_end))}")
+    add_line(17, f"Wagstaff file-by (SOL−45d): {('N/A (No SOL)' if sol_years is None else fmt_dt(wagstaff_deadline))}")
+    add_line(18, f"Triten 14-day check: {'OK (≤14 days)' if triten_report_ok else ('Not OK' if earliest_report_date else 'Unknown')}")
+    add_line(19, f"Company policy note: Wagstaff = Uber & Lyft; Triten = Uber & Lyft")
 
     uploaded_names = [f.name for f in (proof_uploads or [])]
-    add_line(21, f"Proof uploaded now: {', '.join(uploaded_names) if uploaded_names else 'None uploaded'}")
-    add_line(22, f"Proof delivery method(s): {join_list(proof_methods)}")
-    add_line(23, f"SSN last 4 (optional): {ssn_last4 or '—'}")
+    add_line(20, f"Proof uploaded now: {', '.join(uploaded_names) if uploaded_names else 'None uploaded'}")
+    add_line(21, f"Proof delivery method(s): {join_list(proof_methods)}")
+    add_line(22, f"SSN last 4 (optional): {ssn_last4 or '—'}")
 
     elements = "\n".join(line_items)
     st.markdown(f"<div class='copy'>{elements}</div>", unsafe_allow_html=True)
@@ -685,11 +686,10 @@ def render():
         "ReceiptProvided": receipt,
         "ReceiptEvidence": receipt_evidence,
         "ReceiptEvidenceOther": receipt_evidence_other,
-        "DriverProfile": driver_profile,
 
         # Reporting
         "ReportedTo": reported_to,
-        "ReportDates": {k: fmt_date(v) for k,v in report_dates.items()},
+        "ReportDates": {k: fmt_date(v) for k, v in report_dates.items()},
         "FamilyReportDateTime": (fmt_dt(family_report_dt) if family_report_dt else "—"),
 
         # Company response
