@@ -31,7 +31,7 @@ hr {border:0; border-top:1px solid #e5e7eb; margin:12px 0;}
 TODAY = datetime.now()
 
 # =========================
-# EXCEL ENGINE DETECTION (won’t crash UI)
+# EXCEL ENGINE DETECTION (safe fallback)
 # =========================
 try:
     import xlsxwriter as _tmp_xlsxwriter  # noqa: F401
@@ -41,7 +41,7 @@ except Exception:
         import openpyxl as _tmp_openpyxl  # noqa: F401
         XLSX_ENGINE = "openpyxl"
     except Exception:
-        XLSX_ENGINE = None  # TXT + CSV fallbacks still available
+        XLSX_ENGINE = None
 
 # =========================
 # BASE SOL TABLE (general tort)
@@ -58,7 +58,6 @@ TORT_SOL = {
     "Missouri":5,
     "Maine":6,"North Dakota":6,
 }
-
 STATE_ALIAS = {"Washington DC": "D.C.", "District of Columbia": "D.C."}
 STATES = sorted(set(list(TORT_SOL.keys()) + ["D.C."]))
 
@@ -160,15 +159,13 @@ def render():
     st.markdown("---")
 
     # =========================
-    # Story & First-Level Qualification (Vertical Q1-Q3)
+    # Story & First-Level Qualification
     # =========================
     st.markdown("### 1) Story & First-Level Qualification")
 
     # Q1
     st.markdown("**Q1. In your own words, please feel free to describe what happened during the ride.**")
     narr = st.text_area("Caller narrative", key="q1_narr")
-
-    # Rapport after Q1 (enhanced)
     if narr.strip():
         script_block(
             "“Thank you for sharing that. What you’ve described is extremely difficult, and your feelings are valid. "
@@ -227,7 +224,7 @@ def render():
     st.markdown("---")
 
     # =========================
-    # Second-Level Qualification (Q4-Q6)
+    # Second-Level Qualification (Reporting & Location)
     # =========================
     st.markdown("### 3) Second-Level Qualification (Reporting & Location)")
 
@@ -321,7 +318,7 @@ def render():
     st.markdown("---")
 
     # =========================
-    # Injury & Case-Support (Q7-Q9)
+    # Injury & Case-Support
     # =========================
     st.markdown("### 5) Injury & Case-Support Questions")
 
@@ -396,27 +393,9 @@ def render():
         ["Secure camera link (we text you a link)", "Email to jay@advocaterightscenter.com", "FedEx/UPS scan/fax from store"],
         key="proof_methods"
     )
+
     if proof_methods:
         script_block("“Perfect — we’ll make it easy and secure to share those documents.”")
-
-    if "Email to jay@advocaterightscenter.com" in proof_methods:
-        st.markdown(
-            "<div class='callout'><b>Email Instructions</b><br>"
-            "<span class='copy'>Send photos/PDFs to <b>jay@advocaterightscenter.com</b>. "
-            "In the app: Ride History → select ride → “Resend Receipt.”</span></div>",
-            unsafe_allow_html=True
-        )
-    if "Secure camera link (we text you a link)" in proof_methods:
-        st.markdown(
-            "<div class='note-muted'>We’ll send a one-time secure link that opens your phone’s camera to capture the document.</div>",
-            unsafe_allow_html=True
-        )
-        st.button("Send secure upload link (placeholder)")
-    if "FedEx/UPS scan/fax from store" in proof_methods:
-        st.markdown(
-            "<div class='note-muted'>Ask staff to scan/fax to <b>jay@advocaterightscenter.com</b>. Keep the receipt for your records.</div>",
-            unsafe_allow_html=True
-        )
 
     proof_uploads = st.file_uploader(
         "Upload proof now (ride receipt, therapy/medical note, police confirmation) — images or PDFs",
@@ -544,11 +523,10 @@ def render():
     has_atty_val = 'has_atty' in locals() and has_atty
     common_ok = bool(female_rider_val and receipt and gov_id_val and inside_near and (not has_atty_val))
 
-    # Wagstaff accepts Uber & Lyft
+    # Wagstaff accepts Uber & Lyft; Triten accepts Uber & Lyft
     wag_ok_core = common_ok and wagstaff_time_ok and within_24h_family_ok and base_tier_ok and (not wag_disq)
     wag_ok = wag_ok_core and (company in ("Uber", "Lyft"))
 
-    # Triten logic
     tri_disq = []
     if ('verbal_only' in locals()) and verbal_only: tri_disq.append("Verbal abuse only → does not qualify.")
     if ('attempt_only' in locals()) and attempt_only: tri_disq.append("Attempt/minor contact only → does not qualify.")
@@ -569,6 +547,34 @@ def render():
     with b3:
         st.markdown("<div class='badge-note'>Triten</div>", unsafe_allow_html=True)
         badge(triten_ok, "Eligible" if triten_ok else "Not Eligible")
+
+    # =========================
+    # ASSIGN LAW FIRM (drives Law Firm Note)
+    # =========================
+    st.subheader("Assign Law Firm")
+    firm_options = ["Wagstaff Law Firm", "Triten Law Group", "Other (type name)"]
+    # Smart default
+    if wag_ok:
+        default_idx = 0
+    elif triten_ok:
+        default_idx = 1
+    else:
+        default_idx = 2
+    assigned_firm_choice = st.selectbox("Choose firm for this PC", firm_options, index=default_idx, key="assigned_firm_choice")
+    custom_firm_name = ""
+    if assigned_firm_choice == "Other (type name)":
+        custom_firm_name = st.text_input("Enter firm name", key="custom_firm_name").strip()
+
+    # Map to header/short code
+    def firm_header_and_short(choice, custom):
+        if choice == "Wagstaff Law Firm":
+            return "RIDESHARE Waggy | Retained", "Waggy", "Wagstaff Law Firm"
+        if choice == "Triten Law Group":
+            return "RIDESHARE Triten | Retained", "Triten", "Triten Law Group"
+        name = custom or "Other Firm"
+        return f"RIDESHARE {name} | Retained", name, name
+
+    note_header, firm_short, assigned_firm_name = firm_header_and_short(assigned_firm_choice, custom_firm_name)
 
     # ========= Diagnostics =========
     st.subheader("Diagnostics")
@@ -622,7 +628,6 @@ def render():
             f"• Family/Friends-only report delta: {delta_hours:.1f} hours → "
             f"{'OK (≤24h)' if within_24h_family_ok else 'Not OK (>24h)'}"
         )
-
     st.markdown("<div class='kv'>" + "\n".join(wag_lines) + "</div>", unsafe_allow_html=True)
 
     # Triten diagnostics
@@ -655,6 +660,7 @@ def render():
     family_dt_str = fmt_dt(family_report_dt) if family_report_dt else "—"
 
     decision = {
+        "Assigned Firm": assigned_firm_name,
         "Full Name": caller_full_name,
         "Legal Name": caller_legal_name,
         "Consent Recording": consent_recording,
@@ -673,7 +679,7 @@ def render():
         "Wagstaff Eligible?": "Eligible" if wag_ok else "Not Eligible",
         "Triten Eligible?": "Eligible" if triten_ok else "Not Eligible",
     }
-    st.dataframe(pd.DataFrame([decision]), use_container_width=True, height=320)
+    st.dataframe(pd.DataFrame([decision]), use_container_width=True, height=340)
 
     # ========= DETAILED REPORT =========
     st.subheader("Detailed Report — Elements of Statement of the Case for RIDESHARE")
@@ -691,50 +697,48 @@ def render():
     def add_line(num, text): line_items.append(f"{num}. {text}")
 
     add_line(1,  f"Caller Full / Legal: {caller_full_name or '—'} / {caller_legal_name or '—'}")
-    add_line(2,  f"Platform: {company}")
-    add_line(3,  f"Receipt Provided: {'Yes' if receipt else 'No'} | Evidence: {join_list(receipt_evidence)}")
-    add_line(4,  f"Incident Date/Time: {(fmt_date(incident_date) if incident_date else 'UNKNOWN')} {incident_time.strftime('%H:%M') if incident_time else ''}")
-    # Reported to + per-channel details
-    add_line(5,  f"Reported to: {join_list(reported_to)} | Dates: {', '.join([f'{k}: {fmt_date(v)}' for k,v in report_dates.items()]) if report_dates else '—'}")
+    add_line(2,  f"Assigned Firm: {assigned_firm_name}")
+    add_line(3,  f"Platform: {company}")
+    add_line(4,  f"Receipt Provided: {'Yes' if receipt else 'No'} | Evidence: {join_list(receipt_evidence)}")
+    add_line(5,  f"Incident Date/Time: {(fmt_date(incident_date) if incident_date else 'UNKNOWN')} {incident_time.strftime('%H:%M') if incident_time else ''}")
+    add_line(6,  f"Reported to: {join_list(reported_to)} | Dates: {', '.join([f'{k}: {fmt_date(v)}' for k,v in report_dates.items()]) if report_dates else '—'}")
     if "Friend or Family Member" in reported_to:
-        add_line(5.1, f"Family/Friend Contact: {fam_first or '—'} {fam_last or ''} | Phone: {fam_phone or '—'}")
+        add_line(6.1, f"Family/Friend Contact: {fam_first or '—'} {fam_last or ''} | Phone: {fam_phone or '—'}")
     if "Physician" in reported_to:
-        add_line(5.2, f"Physician: {phys_name or '—'} | Clinic/Hospital: {phys_fac or '—'} | Address: {phys_addr or '—'}")
+        add_line(6.2, f"Physician: {phys_name or '—'} | Clinic/Hospital: {phys_fac or '—'} | Address: {phys_addr or '—'}")
     if "Therapist" in reported_to:
-        add_line(5.3, f"Therapist: {ther_name or '—'} | Clinic/Hospital: {ther_fac or '—'} | Address: {ther_addr or '—'}")
+        add_line(6.3, f"Therapist: {ther_name or '—'} | Clinic/Hospital: {ther_fac or '—'} | Address: {ther_addr or '—'}")
     if "Police Department" in reported_to:
-        add_line(5.4, f"Police Station: {police_station or '—'} | Address: {police_addr or '—'}")
+        add_line(6.4, f"Police Station: {police_station or '—'} | Address: {police_addr or '—'}")
     if "Rideshare Company" in reported_to:
-        add_line(5.5, f"Rideshare Company (reported): {rep_rs_company or '—'}")
-
-    add_line(6,  f"Where it happened (scope): {scope_choice}")
-    add_line(7,  f"Pickup → Drop-off: {pickup or '—'} → {dropoff or '—'} | State: {state}")
-    add_line(8,  f"Injuries — Physical: {'Yes' if injury_physical else 'No'}, Emotional: {'Yes' if injury_emotional else 'No'} | Details: {injuries_summary or '—'}")
-    add_line(9,  f"Provider: {provider_name or '—'} | Facility: {provider_facility or '—'} | Therapy start: {fmt_date(therapy_start) if therapy_start else '—'}")
-    add_line(10, f"Medication: {medication_name or '—'} | Pharmacy: {pharmacy_name or '—'}")
-    add_line(11, f"Rideshare submission: {rs_submit_how or '—'} | Company responded: {'Yes' if rs_received_response else 'No'} | Detail: {rs_response_detail or '—'}")
-    add_line(12, f"Phone / Email: {caller_phone or '—'} / {caller_email or '—'}")
-    add_line(13, f"Standard screen — Felony/Criminal history: {'Yes' if felony else 'No'}")
-    add_line(14, f"Acts selected: {join_list(acts_selected)} | Aggravators: {join_list(aggr_selected)}")
-    add_line(15, f"Tier: {tier_label}")
-    add_line(16, f"SOL rule applied: {sol_rule_text} | SOL end: {('No SOL' if sol_years is None else fmt_dt(sol_end))}")
-    add_line(17, f"Wagstaff file-by (SOL−45d): {('N/A (No SOL)' if sol_years is None else fmt_dt(wagstaff_deadline))}")
-    add_line(18, f"Triten 14-day check: {'OK (≤14 days)' if triten_report_ok else ('Not OK' if earliest_report_date else 'Unknown')}")
-    add_line(19, f"Company policy note: Wagstaff = Uber & Lyft; Triten = Uber & Lyft")
-
+        add_line(6.5, f"Rideshare Company (reported): {rep_rs_company or '—'}")
+    add_line(7,  f"Where it happened (scope): {scope_choice}")
+    add_line(8,  f"Pickup → Drop-off: {pickup or '—'} → {dropoff or '—'} | State: {state}")
+    add_line(9,  f"Injuries — Physical: {'Yes' if injury_physical else 'No'}, Emotional: {'Yes' if injury_emotional else 'No'} | Details: {injuries_summary or '—'}")
+    add_line(10, f"Provider: {provider_name or '—'} | Facility: {provider_facility or '—'} | Therapy start: {fmt_date(therapy_start) if therapy_start else '—'}")
+    add_line(11, f"Medication: {medication_name or '—'} | Pharmacy: {pharmacy_name or '—'}")
+    add_line(12, f"Rideshare submission: {rs_submit_how or '—'} | Company responded: {'Yes' if rs_received_response else 'No'} | Detail: {rs_response_detail or '—'}")
+    add_line(13, f"Phone / Email: {caller_phone or '—'} / {caller_email or '—'}")
+    add_line(14, f"Standard screen — Felony/Criminal history: {'Yes' if felony else 'No'}")
+    add_line(15, f"Acts selected: {join_list(acts_selected)} | Aggravators: {join_list(aggr_selected)}")
+    add_line(16, f"Tier: {tier_label}")
+    add_line(17, f"SOL rule applied: {sol_rule_text} | SOL end: {('No SOL' if sol_years is None else fmt_dt(sol_end))}")
+    add_line(18, f"Wagstaff file-by (SOL−45d): {('N/A (No SOL)' if sol_years is None else fmt_dt(wagstaff_deadline))}")
+    add_line(19, f"Triten 14-day check: {'OK (≤14 days)' if triten_report_ok else ('Not OK' if earliest_report_date else 'Unknown')}")
+    add_line(20, f"Company policy note: Wagstaff = Uber & Lyft; Triten = Uber & Lyft")
     uploaded_names = [f.name for f in (proof_uploads or [])]
-    add_line(20, f"Proof uploaded now: {', '.join(uploaded_names) if uploaded_names else 'None uploaded'}")
-    add_line(21, f"Proof delivery method(s): {join_list(proof_methods)}")
-    add_line(22, f"SSN last 4 (optional): {ssn_last4 or '—'} | Full SSN on file: {'Yes' if full_ssn_on_file else 'No'}")
+    add_line(21, f"Proof uploaded now: {', '.join(uploaded_names) if uploaded_names else 'None uploaded'}")
+    add_line(22, f"Proof delivery method(s): {join_list(proof_methods)}")
+    add_line(23, f"SSN last 4 (optional): {ssn_last4 or '—'} | Full SSN on file: {'Yes' if full_ssn_on_file else 'No'}")
 
     elements = "\n".join(line_items)
     st.markdown(f"<div class='copy'>{elements}</div>", unsafe_allow_html=True)
 
     # =========================
-    # LAW FIRM NOTE (Copy & Send)
+    # LAW FIRM NOTE (Copy & Send) — follows assignment
     # =========================
     st.subheader("Law Firm Note (Copy & Send)")
-    note_header = st.text_input("Header (e.g., RIDESHARE Waggy | Retained)", value="RIDESHARE Waggy | Retained", key="note_header")
+
     marketing_source = st.text_input("Marketing Source", value="", key="marketing_source")
     note_gdrive = st.text_input("GDrive URL", value="", key="note_gdrive")
     note_plaid_passed = st.checkbox("Plaid Passed", value=False, key="note_plaid_passed")
@@ -756,7 +760,7 @@ def render():
     created_str = TODAY.strftime("%B %d, %Y")
     company_upper = (company or "").upper()
 
-    # Build the shareable note
+    # Build the shareable note (header follows firm)
     note_lines = [
         f"{note_header}",
         f"{caller_full_name or ''}".strip(),
@@ -800,11 +804,15 @@ def render():
         mime="text/plain"
     )
 
-    # ========= EXPORT (XLSX with formatting if engine available + CSV)
+    # ========= EXPORT (XLSX if engine available + CSV)
     st.subheader("Export")
 
-    # Build export payload dict (safe, no unterminated strings)
     export_payload = {
+        # Assignment
+        "AssignedFirm": assigned_firm_name,
+        "AssignedFirmShort": firm_short,
+        "LawFirmNoteHeader": note_header,
+
         # Caller
         "FullName": caller_full_name,
         "LegalName": caller_legal_name,
@@ -862,9 +870,9 @@ def render():
         "FullSSN_OnFile": full_ssn_on_file,
 
         # Agent Switches
-        "FemaleRider": female_rider_val,
-        "GovIDProvided": gov_id_val,
-        "HasAttorney": has_atty_val,
+        "FemaleRider": 'female_rider' in locals() and female_rider,
+        "GovIDProvided": 'gov_id' in locals() and gov_id,
+        "HasAttorney": 'has_atty' in locals() and has_atty,
         "DriverWeapon": (driver_weapon if 'driver_weapon' in locals() else "—"),
         "ClientCarryingWeapon": (client_weapon if 'client_weapon' in locals() else False),
         "VerbalOnly": (verbal_only if 'verbal_only' in locals() else False),
@@ -904,7 +912,7 @@ def render():
 
     df_export = pd.DataFrame([export_payload])
 
-    # Try to build formatted Excel; fall back gracefully
+    # Try formatted Excel
     xlsx_data = None
     xlsx_msg = ""
     if XLSX_ENGINE:
@@ -946,7 +954,7 @@ def render():
     else:
         st.info(xlsx_msg)
 
-    # ---- CSV (always available)
+    # Always provide CSV
     st.download_button(
         "Download CSV (legacy)",
         data=df_export.to_csv(index=False).encode("utf-8"),
