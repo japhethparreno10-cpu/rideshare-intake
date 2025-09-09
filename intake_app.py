@@ -31,6 +31,19 @@ hr {border:0; border-top:1px solid #e5e7eb; margin:12px 0;}
 TODAY = datetime.now()
 
 # =========================
+# EXCEL ENGINE DETECTION (won’t crash UI)
+# =========================
+try:
+    import xlsxwriter as _tmp_xlsxwriter  # noqa: F401
+    XLSX_ENGINE = "xlsxwriter"
+except Exception:
+    try:
+        import openpyxl as _tmp_openpyxl  # noqa: F401
+        XLSX_ENGINE = "openpyxl"
+    except Exception:
+        XLSX_ENGINE = None  # TXT + CSV fallbacks still available
+
+# =========================
 # BASE SOL TABLE (general tort)
 # =========================
 TORT_SOL = {
@@ -707,4 +720,238 @@ def render():
     add_line(16, f"SOL rule applied: {sol_rule_text} | SOL end: {('No SOL' if sol_years is None else fmt_dt(sol_end))}")
     add_line(17, f"Wagstaff file-by (SOL−45d): {('N/A (No SOL)' if sol_years is None else fmt_dt(wagstaff_deadline))}")
     add_line(18, f"Triten 14-day check: {'OK (≤14 days)' if triten_report_ok else ('Not OK' if earliest_report_date else 'Unknown')}")
-   
+    add_line(19, f"Company policy note: Wagstaff = Uber & Lyft; Triten = Uber & Lyft")
+
+    uploaded_names = [f.name for f in (proof_uploads or [])]
+    add_line(20, f"Proof uploaded now: {', '.join(uploaded_names) if uploaded_names else 'None uploaded'}")
+    add_line(21, f"Proof delivery method(s): {join_list(proof_methods)}")
+    add_line(22, f"SSN last 4 (optional): {ssn_last4 or '—'} | Full SSN on file: {'Yes' if full_ssn_on_file else 'No'}")
+
+    elements = "\n".join(line_items)
+    st.markdown(f"<div class='copy'>{elements}</div>", unsafe_allow_html=True)
+
+    # =========================
+    # LAW FIRM NOTE (Copy & Send)
+    # =========================
+    st.subheader("Law Firm Note (Copy & Send)")
+    note_header = st.text_input("Header (e.g., RIDESHARE Waggy | Retained)", value="RIDESHARE Waggy | Retained", key="note_header")
+    marketing_source = st.text_input("Marketing Source", value="", key="marketing_source")
+    note_gdrive = st.text_input("GDrive URL", value="", key="note_gdrive")
+    note_plaid_passed = st.checkbox("Plaid Passed", value=False, key="note_plaid_passed")
+    note_receipt_pdf = st.checkbox(
+        "Uber/Lyft PDF Receipt and screenshot",
+        value=("PDF" in receipt_evidence and any("Screenshot" in x for x in receipt_evidence)),
+        key="note_receipt_pdf"
+    )
+    note_state_id = st.checkbox("State ID", value=('gov_id' in locals() and gov_id), key="note_state_id")
+    note_extra = st.text_area("Additional note", value="", key="note_extra")
+
+    # Tier format: "2 Case"
+    tier_case_str = "Unclear"
+    if tier_label.startswith("Tier 1"):
+        tier_case_str = "1 Case"
+    elif tier_label.startswith("Tier 2"):
+        tier_case_str = "2 Case"
+
+    created_str = TODAY.strftime("%B %d, %Y")
+    company_upper = (company or "").upper()
+
+    # Build the shareable note
+    note_lines = [
+        f"{note_header}",
+        f"{caller_full_name or ''}".strip(),
+        f"Phone number: {caller_phone or ''}".strip(),
+        f"Email: {caller_email or ''}".strip(),
+        f"Rideshare : {company_upper}",
+        f"Tier: {tier_case_str}",
+        f"Marketing Source: {marketing_source or ''}",
+        f"Created: {created_str}",
+    ]
+    if full_ssn_on_file:
+        note_lines.append(":white_check_mark:Full SSN")
+    if note_receipt_pdf:
+        note_lines.append(":white_check_mark:Uber PDF Receipt and screenshot")
+    if note_state_id:
+        note_lines.append(":white_check_mark:State ID")
+    if note_plaid_passed:
+        note_lines.append(":white_check_mark:Plaid Passed")
+    if note_gdrive:
+        note_lines.append(f"Gdrive: {note_gdrive}")
+    if note_extra:
+        note_lines.append(f"Note: {note_extra}")
+
+    lawfirm_note = "\n".join(note_lines)
+    st.markdown(f"<div class='copy'>{lawfirm_note}</div>", unsafe_allow_html=True)
+
+    # ===== Downloads: Law Firm Note (txt)
+    st.download_button(
+        "Download Law Firm Note (.txt)",
+        data=lawfirm_note.encode("utf-8"),
+        file_name="lawfirm_note.txt",
+        mime="text/plain"
+    )
+
+    # ===== Download: Detailed Report as TXT (Notepad-friendly)
+    detailed_report_txt = "Detailed Report — Elements of Statement of the Case for RIDESHARE\n\n" + elements
+    st.download_button(
+        "Download Detailed Report (.txt)",
+        data=detailed_report_txt.encode("utf-8"),
+        file_name="statement_of_case.txt",
+        mime="text/plain"
+    )
+
+    # ========= EXPORT (XLSX with formatting if engine available + CSV)
+    st.subheader("Export")
+
+    # Build export payload dict (safe, no unterminated strings)
+    export_payload = {
+        # Caller
+        "FullName": caller_full_name,
+        "LegalName": caller_legal_name,
+        "ConsentRecording": consent_recording,
+        "Phone": caller_phone,
+        "Email": caller_email,
+
+        # Ride & Incident
+        "Company": company,
+        "Pickup": pickup,
+        "Dropoff": dropoff,
+        "State": state,
+        "IncidentDate": fmt_date(incident_date) if incident_date else "UNKNOWN",
+        "IncidentTime": incident_time.strftime("%H:%M"),
+
+        # Evidence
+        "ReceiptProvided": receipt,
+        "ReceiptEvidence": ", ".join(receipt_evidence) if receipt_evidence else "",
+        "ReceiptEvidenceOther": receipt_evidence_other or "",
+
+        # Reporting channels & details
+        "ReportedTo": ", ".join(reported_to) if reported_to else "",
+        "ReportDates": "; ".join([f"{k}: {fmt_date(v)}" for k, v in report_dates.items()]) if report_dates else "",
+        "FamilyReportDateTime": (fmt_dt(family_report_dt) if family_report_dt else "—"),
+        "FamilyFirstName": fam_first,
+        "FamilyLastName": fam_last,
+        "FamilyPhone": fam_phone,
+        "PhysicianName": phys_name,
+        "PhysicianClinicHospital": phys_fac,
+        "PhysicianAddress": phys_addr,
+        "TherapistName": ther_name,
+        "TherapistClinicHospital": ther_fac,
+        "TherapistAddress": ther_addr,
+        "PoliceStation": police_station,
+        "PoliceAddress": police_addr,
+        "ReportedRideshareCompany": rep_rs_company,
+
+        # Company response
+        "SubmittedHow": rs_submit_how,
+        "CompanyResponded": rs_received_response,
+        "CompanyResponseDetail": rs_response_detail,
+
+        # Injuries / Providers / Meds
+        "InjuryPhysical": injury_physical,
+        "InjuryEmotional": injury_emotional,
+        "InjuriesSummary": injuries_summary,
+        "ProviderName": provider_name,
+        "ProviderFacility": provider_facility,
+        "TherapyStartDate": fmt_date(therapy_start) if therapy_start else "—",
+        "Medication": medication_name,
+        "Pharmacy": pharmacy_name,
+
+        # Identity
+        "SSN_Last4": ssn_last4,
+        "FullSSN_OnFile": full_ssn_on_file,
+
+        # Agent Switches
+        "FemaleRider": female_rider_val,
+        "GovIDProvided": gov_id_val,
+        "HasAttorney": has_atty_val,
+        "DriverWeapon": (driver_weapon if 'driver_weapon' in locals() else "—"),
+        "ClientCarryingWeapon": (client_weapon if 'client_weapon' in locals() else False),
+        "VerbalOnly": (verbal_only if 'verbal_only' in locals() else False),
+        "AttemptOnly": (attempt_only if 'attempt_only' in locals() else False),
+
+        # Acts
+        "Acts_Selected": ", ".join(acts_selected) if acts_selected else "",
+        "Aggravators_Selected": ", ".join(aggr_selected) if aggr_selected else "",
+
+        # SOL Calculations
+        "SA_Category": category or "—",
+        "SA_Extension_Used": (sol_state in SA_EXT) and bool(category),
+        "SOL_Rule_Text": sol_rule_text,
+        "SOL_Years": ("No SOL" if sol_years is None else sol_years),
+        "SOL_End": ("No SOL" if sol_years is None else fmt_dt(sol_end)),
+        "Wagstaff_FileBy": ("N/A (No SOL)" if sol_years is None else fmt_dt(wagstaff_deadline)),
+        "Earliest_Report_Date": (fmt_date(earliest_report_date) if earliest_report_date else "—"),
+        "Earliest_Report_DeltaDays": (None if delta_days is None else int(delta_days)),
+        "Earliest_Report_Channels": ", ".join(earliest_channels) if earliest_channels else "",
+        "Triten_14day_OK": triten_report_ok,
+
+        # Eligibility
+        "Eligibility_Wagstaff": "Eligible" if wag_ok else "Not Eligible",
+        "Eligibility_Triten": "Eligible" if triten_ok else "Not Eligible",
+
+        # Proof
+        "Proof_Uploaded_Files": ", ".join(uploaded_names) if uploaded_names else "",
+        "Proof_Delivery_Methods": ", ".join(proof_methods) if proof_methods else "",
+
+        # Lawfirm Note & Marketing
+        "LawFirmNote": lawfirm_note,
+        "MarketingSource": marketing_source,
+
+        # Full text report
+        "Elements_Report": elements.strip()
+    }
+
+    df_export = pd.DataFrame([export_payload])
+
+    # Try to build formatted Excel; fall back gracefully
+    xlsx_data = None
+    xlsx_msg = ""
+    if XLSX_ENGINE:
+        try:
+            xlsx_buf = BytesIO()
+            with pd.ExcelWriter(xlsx_buf, engine=XLSX_ENGINE) as writer:
+                df_export.to_excel(writer, index=False, sheet_name="Intake")
+                if XLSX_ENGINE == "xlsxwriter":
+                    workbook  = writer.book
+                    worksheet = writer.sheets["Intake"]
+                    fmt = workbook.add_format({"align": "center", "valign": "top", "text_wrap": True})
+                    for col_idx in range(len(df_export.columns)):
+                        worksheet.set_column(col_idx, col_idx, 28, fmt)
+                    worksheet.freeze_panes(1, 0)
+                elif XLSX_ENGINE == "openpyxl":
+                    ws = writer.sheets["Intake"]
+                    from openpyxl.styles import Alignment
+                    alignment = Alignment(horizontal="center", vertical="top", wrap_text=True)
+                    for col_cells in ws.columns:
+                        for cell in col_cells:
+                            cell.alignment = alignment
+                    for col in ws.columns:
+                        col_letter = col[0].column_letter
+                        ws.column_dimensions[col_letter].width = 28
+                    ws.freeze_panes = "A2"
+            xlsx_data = xlsx_buf.getvalue()
+        except Exception as e:
+            xlsx_msg = f"Excel export temporarily unavailable ({type(e).__name__}). Use TXT or CSV."
+    else:
+        xlsx_msg = "Excel engine not installed. Add 'xlsxwriter' or 'openpyxl' to requirements.txt to enable formatted Excel."
+
+    if xlsx_data:
+        st.download_button(
+            "Download Excel (formatted .xlsx)",
+            data=xlsx_data,
+            file_name="intake_decision.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    else:
+        st.info(xlsx_msg)
+
+    # ---- CSV (always available)
+    st.download_button(
+        "Download CSV (legacy)",
+        data=df_export.to_csv(index=False).encode("utf-8"),
+        file_name="intake_decision.csv",
+        mime="text/csv"
+    )
+
+render()
