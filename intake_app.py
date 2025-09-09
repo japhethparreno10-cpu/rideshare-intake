@@ -132,18 +132,37 @@ def categorical_brief(flags):
 st.title("Rideshare Intake Qualifier · with Coach + Deep Diagnostics")
 
 def render():
+    # ---------- INTRODUCTION ----------
+    script_block(
+        "INTRODUCTION\n"
+        "This is _________ with the Advocate Center calling about the Uber-Lyft Rideshare Settlements? "
+        "You submitted your information online [day and time] because you may have been assaulted during an Uber or Lyft ride?\n\n"
+        "First off, I want to say how sorry I am that something like this happened. And you’re not alone. "
+        "Many others have come forward too, and we’re here to listen and help you get justice.\n\n"
+        "May I have your permission to record this conversation, which will remain private and confidential? "
+        "[It will not be made public. Law firms don’t file recordings or any evidence in the court system unless you approve "
+        "and actually go to court, and there’s less than a 1/1000 chance of that because, although you will have an individual claim "
+        "for what you experienced, these cases are now in a multidistrict litigation that allows trials for similar categorical experiences "
+        "from other victims who will testify. And that will be the foundation that the law firm will use to pursue a specific settlement for your injury]."
+    )
+    consent_recording = st.toggle("Permission to record (private & confidential)", value=False, key="consent_recording")
+
     # ---------- page inputs ----------
     L, R = st.columns(2)
 
     with L:
         client_name = st.text_input("Client full name (PC)", key="client_name")
-        st.markdown("**1. Describe what happened (allow claimant to speak freely).**")
-        narr = st.text_area(" ", key="q1_narr")
-        script_block('Agent Response: Thank you for sharing that with me. You said "[mirror key words]". This space is confidential.')
 
-        st.markdown("**3. Are you able to reproduce the ride share receipt to show proof of the ride? (If not, DQ)**")
+        # 1ST LEVEL QUALIFICATION
+        st.markdown("**1. Describe what happened during your ride.**")
+        narr = st.text_area(" ", key="q1_narr")
+        script_block(
+            'Response: That must have been terrifying. I’m really sorry you experienced ____. '
+            "So, let’s confirm some of the details so we can build up the foundation of your case."
+        )
+
+        st.markdown("**3. Are you able to reproduce the rideshare receipt to show proof of the ride? (If not, DQ)**")
         receipt = st.toggle("Receipt provided (email/app/PDF)", value=False, key="q3_receipt_toggle")
-        # NEW: receipt evidence detail
         receipt_evidence = st.multiselect(
             "What can you provide as receipt evidence?",
             ["PDF", "Screenshot of Receipt", "Email", "In-App Receipt (screenshot)", "Other"],
@@ -179,13 +198,6 @@ def render():
             report_dates["Family/Friends"] = ff_date
             family_report_dt = datetime.combine(ff_date, ff_time)
 
-        st.markdown("**7. Did the incident occur while utilizing the Rideshare service, either inside or just outside the vehicle?**")
-        inside_near = st.toggle("Mark ON once confirmed inside/just outside/started near the car", value=False, key="q7_inside")
-        if not inside_near:
-            script_block("Did the incident occur while utilizing the Rideshare service, either inside or just outside the vehicle?")
-        else:
-            script_block("If Yes: Okay. So, it happened [repeat where happened]. Knowing where it happened confirms it was within the Rideshare’s safety responsibility.")
-
         st.markdown("**9. Did you receive a response from Uber or Lyft?**")
         rs_received_response = st.toggle("Mark ON if a response was received", value=False, key="q9_resp_toggle")
         rs_response_detail = st.text_input("If yes, what did they say? (optional)", key="q9_resp_detail")
@@ -211,6 +223,110 @@ def render():
         st.markdown("**10. Do you have any felonies or criminal history?**")
         felony = st.toggle("Mark ON only if they confirm a felony/criminal history", value=False, key="q10_felony")
 
+    # ---------- EDUCATION: SAFETY ZONE ----------
+    st.markdown("---")
+    script_block(
+        "HOW THIS HAPPENED → EDUCATE CLIENT / SAFETY ZONE\n"
+        "Uber & Lyft have been exposed for improperly screening drivers, failing to remove dangerous drivers, and misrepresenting safety practices.\n\n"
+        "For example, public reporting has alleged that hundreds of thousands of sexual assault and misconduct incidents were reported to Uber over multiple years—"
+        "roughly on the order of one incident every few minutes.\n\n"
+        "Now, many people don’t report these incidents. Coming forward helps you and others obtain justice and compensation, and pushes Uber & Lyft to implement real safety measures."
+    )
+
+    # ---------- 2ND LEVEL OF QUALIFICATION ----------
+    st.markdown("**2ND LEVEL OF QUALIFICATION**")
+    # Where did it happen (inside/just outside/furtherance)
+    scope_choice = st.selectbox(
+        "Did the incident happen inside the car, just outside the car, or in furtherance of an assault that started in/around the car?",
+        ["Inside the car", "Just outside the car", "Furtherance from the car", "Unclear"],
+        key="scope_choice"
+    )
+    inside_near = scope_choice in ["Inside the car", "Just outside the car", "Furtherance from the car"]
+
+    # pickup/dropoff/state already captured above
+
+    # ---------- MORE EDUCATION ----------
+    script_block(
+        "MORE EDUCATION FOR EMOTION\n"
+        "What’s really unfortunate is that Uber and Lyft may have had substantial knowledge since at least 2014 that dangerous drivers were on the platform. "
+        "They introduced a $1 “Safe Rides Fee,” describing it as funding safety initiatives. Investigations later suggested this fee generated large revenue without being "
+        "directly allocated to those improvements. It was later renamed the “booking fee.”\n\n"
+        "So they continued to charge customers, kept key risk information internal, and marketed safety while potentially putting women in harm’s way."
+    )
+
+    # ---------- [OPTIONAL] INJURIES / CLAIMS SUMMARY ----------
+    st.subheader("Injuries & Effects (optional)")
+    injuries_summary = st.text_area("Briefly describe injuries, treatment, and ongoing effects (if any)", key="injuries_summary")
+
+    # ---------- SEGUE TO HIRING / WHAT HAPPENS NEXT ----------
+    script_block(
+        "WHAT HAPPENS NEXT\n"
+        "To pursue a settlement, you hire the law firm on a contingency basis: no upfront payments, and you owe nothing unless we obtain a settlement. "
+        "If no settlement, you owe nothing."
+    )
+    understands_contingency = st.toggle("Caller understands contingency terms (no upfront, nothing owed if no settlement).", value=False, key="understands_contingency")
+
+    # ---------- WHO WE ARE (Wagstaff) ----------
+    script_block(
+        "WHO WE ARE – THE LAWFIRM\n"
+        "We are the legal intake center for The Wagstaff Law Firm. Wagstaff’s attorneys are nationally recognized, with Super Lawyers selections and judges appointing "
+        "them to multiple Plaintiff Steering Committees in major litigations. They’re applying that leadership to hold Uber and Lyft accountable for failing to protect riders."
+    )
+
+    # ---------- THE PROCESS (bellwethers) ----------
+    script_block(
+        "THE PROCESS\n"
+        "After initial motions and discovery, courts typically schedule several bellwether test trials—real trials based on categories of assaults. "
+        "Those outcomes inform settlement values, which means you won’t have to retell your story in a personal trial to receive a case-specific settlement."
+    )
+
+    # ---------- REQUEST FOR PROOF (RIDESHARE-SPECIFIC) ----------
+    st.subheader("Request for Proof")
+    script_block(
+        "Do you have anything we can present to the firm that shows the ride and what happened—"
+        "for example your in-app receipt or confirmation email—and any medical/therapy documentation or a police report?\n\n"
+        "(a) For documentation, people often send photos of receipt emails or in-app receipts, hospital discharge papers, doctor/therapist notes, or police report confirmations."
+    )
+
+    # Upload any supporting docs (images/PDFs)
+    proof_uploads = st.file_uploader(
+        "Upload proof now (ride receipt, hospital/therapy note, police confirmation) — images or PDFs",
+        type=["pdf", "png", "jpg", "jpeg", "heic"],
+        accept_multiple_files=True,
+        key="proof_uploads"
+    )
+
+    # How will they send (if not uploading now)?
+    proof_methods = st.multiselect(
+        "How would you like to send documentation if you’re not uploading now?",
+        ["Secure camera link (we text you a link)", "Text/Email", "FedEx/UPS scan at store"],
+        key="proof_methods"
+    )
+
+    if "Text/Email" in proof_methods:
+        st.markdown(
+            "<div class='callout'><b>Text / Email Instructions</b><br>"
+            "<span class='copy'>Email or text photos/PDFs to <b>jay@advocaterightscenter.com</b>. "
+            "If using the rideshare app, open Ride History → select the ride → “Resend Receipt.”</span></div>",
+            unsafe_allow_html=True
+        )
+
+    if "Secure camera link (we text you a link)" in proof_methods:
+        st.markdown(
+            "<div class='note-muted'>We’ll send you a one-time secure link that opens your phone’s camera to capture the document. "
+            "Just confirm your mobile number with us after this call.</div>",
+            unsafe_allow_html=True
+        )
+        st.button("Send secure upload link (placeholder)")
+
+    if "FedEx/UPS scan at store" in proof_methods:
+        st.markdown(
+            "<div class='note-muted'>You can bring the documents to a FedEx/UPS/office-supply store. Ask them to scan and email them to "
+            "<b>jay@advocaterightscenter.com</b>. Keep the receipt in case the firm requests it.</div>",
+            unsafe_allow_html=True
+        )
+
+    # ---------- ELIGIBILITY SWITCHES ----------
     st.markdown("---")
     st.caption("Eligibility switches (leave OFF until verified)")
     colE1, colE2, colE3 = st.columns(3)
@@ -343,7 +459,7 @@ def render():
     else:
         wag_lines.append(f"• Tier = {tier_label}.")
 
-    # === UPDATED company policy line for Wagstaff ===
+    # UPDATED policy line for Wagstaff
     if company not in ("Uber", "Lyft"):
         wag_lines.append(f"• Company policy: Wagstaff = Uber & Lyft → selected {company}.")
 
@@ -480,10 +596,14 @@ def render():
     add_line(32, f"SOL end (if applicable): {('No SOL' if sol_years is None else fmt_dt(sol_end))}")
     add_line(33, f"Wagstaff file-by (SOL − 45d): {('N/A (No SOL)' if sol_years is None else fmt_dt(wagstaff_deadline))}")
     add_line(34, f"Triten 14-day check: {'OK (≤14 days)' if triten_report_ok else ('Not OK' if earliest_report_date else 'Unknown (no report date)')}")
-    # === UPDATED policy note line ===
     add_line(35, f"Company policy note: Wagstaff = Uber & Lyft; Triten = Uber & Lyft")
     add_line(36, f"Wagstaff Eligibility: {'Eligible' if wag_ok else 'Not Eligible'}")
     add_line(37, f"Triten Eligibility: {'Eligible' if triten_ok else 'Not Eligible'}")
+
+    # Proof summary lines (NEW)
+    uploaded_names = [f.name for f in (proof_uploads or [])]
+    add_line(38, f"Proof uploaded now: {', '.join(uploaded_names) if uploaded_names else 'None uploaded during call'}")
+    add_line(39, f"Proof delivery method(s): {join_list(proof_methods)}")
 
     elements = "\n".join(line_items)
     st.markdown(f"<div class='copy'>{elements}</div>", unsafe_allow_html=True)
@@ -522,6 +642,10 @@ def render():
         # Eligibility
         "Eligibility_Wagstaff": "Eligible" if wag_ok else "Not Eligible",
         "Eligibility_Triten": "Eligible" if triten_ok else "Not Eligible",
+
+        # Proof (NEW)
+        "Proof_Uploaded_Files": uploaded_names,
+        "Proof_Delivery_Methods": proof_methods,
 
         # Full text report for copy
         "Elements_Report": elements.strip()
