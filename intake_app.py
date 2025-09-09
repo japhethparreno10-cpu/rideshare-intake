@@ -18,7 +18,7 @@ h2 {font-size: 1.5rem !important; margin-top: 0.6rem;}
 .badge-note {background:#1f2937; color:#f9fafb; padding:8px 12px; border-radius:10px; font-size:14px; display:inline-block;}
 .note-muted {border:1px dashed #d1d5db; border-radius:8px; padding:10px 12px; margin:8px 0; background:#f9fafb; color:#374151;}
 .script {border-left:4px solid #9ca3af; background:#f3f4f6; color:#111827; padding:12px 14px; border-radius:8px; margin:8px 0 12px 0; font-size:0.97rem;}
-.callout {border-left:6px solid #2563eb; background:#eef2ff; color:#1e3a8a; padding:12px 14px; border-radius:8px; margin:8px 0 12px 0;}
+.callout {border-left:6px solid #2563eb; background:#eef2ff; color:#1e3a8a; padding:12px 14px; border-radius:12px; margin:8px 0 12px 0;}
 .small {font-size: 0.9rem; color:#4b5563;}
 hr {border:0; border-top:1px solid #e5e7eb; margin:12px 0;}
 [data-testid="stDataFrame"] div, [data-testid="stTable"] div {font-size: 1rem;}
@@ -154,17 +154,24 @@ def render():
     st.markdown("**Q1. In your own words, please feel free to describe what happened during the ride.**")
     narr = st.text_area("Caller narrative", key="q1_narr")
 
-    # Rapport
-    script_block(
-        "Rapport:\n"
-        "“Thank you for sharing that. What you’ve described is extremely difficult, and your feelings are valid. "
-        "You’re not alone here. I’m here to listen, to move at your pace, and to protect your story. "
-        "If anything is hard to say, take your time—we can pause whenever you need.”"
-    )
+    # Rapport after Q1 (enhanced)
+    if narr.strip():
+        script_block(
+            "“Thank you for sharing that. What you’ve described is extremely difficult, and your feelings are valid. "
+            "You’re not alone here. I’m here to listen, to move at your pace, and to protect your story. "
+            "If anything is hard to say, take your time—we can pause whenever you need.”"
+        )
 
     # Q2
     st.markdown("**Q2. Which rideshare platform was it?**")
     company = st.selectbox("Select platform", ["Uber", "Lyft", "Other"], key="q2_company")
+    if company:
+        script_block(f"“Thanks for confirming it was {company}. That helps us pull the right records and policies.”")
+
+    # EXTENSION just below Q2 — Pickup / Drop-off
+    st.markdown("**Pickup / Drop-off (extension to Q2)**")
+    pickup = st.text_input("Pickup location (address/description)", key="pickup")
+    dropoff = st.text_input("Drop-off location (address/description)", key="dropoff")
 
     # Q3
     st.markdown("**Q3. Do you have a receipt for the ride (in-app or email)?**")
@@ -177,6 +184,11 @@ def render():
     receipt_evidence_other = st.text_input("If Other, describe", key="receipt_evidence_other")
     if receipt_evidence_other and "Other" not in receipt_evidence:
         receipt_evidence.append(f"Other: {receipt_evidence_other.strip()}")
+    if receipt_evidence:
+        script_block(
+            f"“Appreciate you gathering those: {', '.join(receipt_evidence)}. "
+            "Receipts and screenshots are powerful evidence linking the ride to your account.”"
+        )
 
     if not receipt:
         st.markdown(
@@ -210,6 +222,8 @@ def render():
     has_incident_date = st.toggle("Caller confirms they know the date", value=False, key="q4_hasdate")
     incident_date = st.date_input("Select Incident Date", value=TODAY.date(), key="q4_date") if has_incident_date else None
     incident_time = st.time_input("Incident Time (for timing rules)", value=time(21, 0), key="time_for_calc")
+    if has_incident_date and incident_date:
+        script_block("“Thanks — the specific date lets the attorneys verify deadlines and request the correct records.”")
 
     # Q5
     st.markdown("**Q5. Did you report the incident to anyone?** (Uber/Lyft, Police, Physician, Therapist, Family/Friend)")
@@ -218,6 +232,8 @@ def render():
         ["Rideshare Company","Physician","Friend or Family Member","Therapist","Police Department","NO (DQ, UNLESS TIER 1 OR MINOR)"],
         key="q5_reported"
     )
+    if reported_to:
+        script_block(f"“Thank you — noting {', '.join(reported_to)} helps build a reliable timeline for the case.”")
 
     # Per-channel details containers
     report_dates = {}
@@ -276,6 +292,8 @@ def render():
         key="scope_choice"
     )
     inside_near = scope_choice in ["Inside the car", "Just outside the car", "Furtherance from the car"]
+    if scope_choice and scope_choice != "Unclear":
+        script_block(f"“Got it — {scope_choice.lower()}. That helps confirm it occurred within the rideshare’s safety responsibility.”")
 
     # ---- EDUCATION #2 ----
     script_block(
@@ -298,17 +316,23 @@ def render():
     injury_physical = st.checkbox("Physical injury", key="inj_physical")
     injury_emotional = st.checkbox("Emotional effects (anxiety, nightmares, etc.)", key="inj_emotional")
     injuries_summary = st.text_area("If comfortable, briefly describe injuries/effects", key="injuries_summary")
+    if injury_physical or injury_emotional or injuries_summary.strip():
+        script_block("“I’m sorry you’re dealing with these effects. Your health matters, and we’ll reflect this in the case.”")
 
     # Q8
     st.markdown("**Q8. Have you spoken to a doctor, therapist, or counselor?**")
     provider_name = st.text_input("Provider name (optional)", key="provider_name")
     provider_facility = st.text_input("Facility/Clinic (optional)", key="provider_facility")
     therapy_start = st.date_input("Therapy start date (if any)", value=TODAY.date(), key="therapy_start") if st.toggle("Add therapy start date", key="therapy_toggle", value=False) else None
+    if provider_name.strip() or provider_facility.strip() or therapy_start:
+        script_block("“Thank you — treatment notes are strong, objective support for your experience.”")
 
     # Q9
     st.markdown("**Q9. Do you take any medications related to this?**")
     medication_name = st.text_input("Medication (optional)", key="medication_name")
     pharmacy_name = st.text_input("Pharmacy (optional)", key="pharmacy_name")
+    if medication_name.strip() or pharmacy_name.strip():
+        script_block("“Understood. Pharmacy records help connect treatment to what you went through.”")
 
     # ---- EDUCATION #3 ----
     script_block(
@@ -323,16 +347,11 @@ def render():
     st.markdown("---")
 
     # =========================
-    # Contact & Ride Details
+    # Contact & Incident State
     # =========================
-    st.markdown("### Contact & Ride Details")
-
+    st.markdown("### Contact & Incident State")
     caller_phone = st.text_input("Best phone number", key="caller_phone")
     caller_email = st.text_input("Best email", key="caller_email")
-
-    st.markdown("**Pickup / Drop-off**")
-    pickup = st.text_input("Pickup location (address/description)", key="pickup")
-    dropoff = st.text_input("Drop-off location (address/description)", key="dropoff")
     state = st.selectbox("Incident state", STATES, index=(STATES.index("California") if "California" in STATES else 0), key="q_state")
 
     st.markdown("**Rideshare submission & response (if any)**")
@@ -363,6 +382,9 @@ def render():
         ["Secure camera link (we text you a link)", "Email to jay@advocaterightscenter.com", "FedEx/UPS scan/fax from store"],
         key="proof_methods"
     )
+    if proof_methods:
+        script_block("“Perfect — we’ll make it easy and secure to share those documents.”")
+
     if "Email to jay@advocaterightscenter.com" in proof_methods:
         st.markdown(
             "<div class='callout'><b>Email Instructions</b><br>"
@@ -691,7 +713,7 @@ def render():
     add_line(21, f"Proof delivery method(s): {join_list(proof_methods)}")
     add_line(22, f"SSN last 4 (optional): {ssn_last4 or '—'} | Full SSN on file: {'Yes' if full_ssn_on_file else 'No'}")
 
-    elements = "\n".join(str(li) for li in line_items)
+    elements = "\n".join(line_items)
     st.markdown(f"<div class='copy'>{elements}</div>", unsafe_allow_html=True)
 
     # =========================
@@ -699,10 +721,14 @@ def render():
     # =========================
     st.subheader("Law Firm Note (Copy & Send)")
     note_header = st.text_input("Header (e.g., RIDESHARE Waggy | Retained)", value="RIDESHARE Waggy | Retained", key="note_header")
-    note_source = st.text_input("Source", value="", key="note_source")
+    marketing_source = st.text_input("Marketing Source", value="", key="marketing_source")
     note_gdrive = st.text_input("GDrive URL", value="", key="note_gdrive")
     note_plaid_passed = st.checkbox("Plaid Passed", value=False, key="note_plaid_passed")
-    note_receipt_pdf = st.checkbox("Uber/Lyft PDF Receipt and screenshot", value=("PDF" in receipt_evidence and any("Screenshot" in x for x in receipt_evidence)), key="note_receipt_pdf")
+    note_receipt_pdf = st.checkbox(
+        "Uber/Lyft PDF Receipt and screenshot",
+        value=("PDF" in receipt_evidence and any("Screenshot" in x for x in receipt_evidence)),
+        key="note_receipt_pdf"
+    )
     note_state_id = st.checkbox("State ID", value=('gov_id' in locals() and gov_id), key="note_state_id")
     note_extra = st.text_area("Additional note", value="", key="note_extra")
 
@@ -716,7 +742,7 @@ def render():
     created_str = TODAY.strftime("%B %d, %Y")
     company_upper = (company or "").upper()
 
-    # Build the shareable note (only include checkmarks for items toggled True)
+    # Build the shareable note
     note_lines = [
         f"{note_header}",
         f"{caller_full_name or ''}".strip(),
@@ -724,7 +750,7 @@ def render():
         f"Email: {caller_email or ''}".strip(),
         f"Rideshare : {company_upper}",
         f"Tier: {tier_case_str}",
-        f"Source: {note_source or ''}",
+        f"Marketing Source: {marketing_source or ''}",
         f"Created: {created_str}",
     ]
     if full_ssn_on_file:
@@ -843,6 +869,7 @@ def render():
 
         # Lawfirm Note (as rendered)
         "LawFirmNote": lawfirm_note,
+        "MarketingSource": marketing_source,
 
         # Full text report
         "Elements_Report": elements.strip()
