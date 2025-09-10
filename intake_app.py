@@ -199,7 +199,6 @@ OBJECTION_SCRIPTS = {
     "Instructions for Resending Rideshare Receipts":
         "Uber: Go to the Activity tab, select the ride, click the Receipt icon, and then choose resend email.\n\n"
         "Lyft: Open Lyft app > Ride history > Tap the ride > Scroll down > Tap 'Resend receipt' > Enter your email to send",
-    # Link-only references below:
     "How to Report an Assault to Uber/Lyft (link)":
         "https://docs.google.com/document/d/1Oiljbf3oHqtoKDv2jArsXMIVw5hhuNrRiZ1MDl0aoqo/edit?usp=sharing",
     "Script for Irate Callers (link)":
@@ -333,6 +332,18 @@ def render():
     caller_full_name = st.text_input("Full name (as provided verbally)", key="caller_full_name")
     caller_legal_name = st.text_input("Full legal name (exact on ID)", key="caller_legal_name")
     consent_recording = st.toggle("Permission to record (private & confidential)", value=False, key="consent_recording")
+
+    # NEW: prior firm question (immediately under recording consent)
+    st.markdown("**As far as you can remember, have you signed up with any Law Firm to represent you on this case but then got disqualified for any reason?**")
+    prior_firm_radio = st.radio("We still might be able to help but need to know.", ["No", "Yes"], horizontal=True, key="prior_firm_any")
+    prior_firm_any = (prior_firm_radio == "Yes")
+    prior_firm_note = ""
+    if prior_firm_any:
+        prior_firm_note = st.text_area("If yes, share anything you recall (optional — dates, firm name, reason):", key="prior_firm_note")
+        script_block("“Thank you for sharing that. Prior disqualifications can happen for technical reasons and do not close the door here. "
+                     "Knowing this helps us prevent any conflicts and move your file faster.”")
+    else:
+        script_block("“Thanks for confirming. That keeps the intake simple and avoids any duplicate-representation issues.”")
 
     st.markdown("---")
 
@@ -518,7 +529,7 @@ def render():
         police_addr    = st.text_input("Police Station Address", key="police_addr")
         report_dates["Police"] = st.date_input("Date reported to Police", value=TODAY.date(), key="q5a_dt_police")
 
-    # Reported to Rideshare company
+    # Rideshare company channel
     rep_rs_company = ""
     if "Rideshare Company" in reported_to:
         st.markdown("**Rideshare Company (reported)**")
@@ -877,6 +888,7 @@ def render():
         add_line(18, "Earliest report: —")
     add_line(19, f"Wagstaff Eligibility: {'Eligible' if wag_ok else 'Not Eligible'}")
     add_line(20, f"Triten Eligibility: {'Eligible' if triten_ok else 'Not Eligible'}")
+    add_line(21, f"Prior Firm Signed/Disqualified: {'Yes' if prior_firm_any else 'No'}{(' — ' + prior_firm_note) if (prior_firm_any and prior_firm_note) else ''}")
 
     elements = "\n".join([str(x) for x in line_items])
     st.markdown(f"<div class='copy'>{elements}</div>", unsafe_allow_html=True)
@@ -925,6 +937,8 @@ def render():
         note_lines.append(":white_check_mark:Plaid Passed")
     if note_gdrive:
         note_lines.append(f"Gdrive: {note_gdrive}")
+    if prior_firm_any:
+        note_lines.append(f"Prior firm signed/disqualified: YES{(' — ' + prior_firm_note) if prior_firm_note else ''}")
     if note_extra:
         note_lines.append(f"Note: {note_extra}")
 
@@ -1045,12 +1059,10 @@ def render():
         wag_ssn = st.text_input("Social Security No.", value=(full_ssn if full_ssn else ""), key="wag_ssn")
 
         wag_claim_for = st.radio("Does the claim pertain to you or another person?", ["Myself","Someone Else"], horizontal=True, key="wag_claim_for")
-        wag_prior_firm = st.radio(
-            "As far as you can remember, have you signed up with any Law Firm to represent you on this case but then got disqualified for any reason?",
-            ["NO","YES"], horizontal=True, key="wag_prior_firm"
-        )
-        if wag_prior_firm == "YES":
-            st.text_area("Briefly explain (optional)", key="wag_prior_firm_note")
+
+        # Show prior-firm answer from top (read-only context)
+        st.caption(f"Prior firm signed/disqualified earlier: {'Yes' if prior_firm_any else 'No'}"
+                   f"{(' — ' + prior_firm_note) if (prior_firm_any and prior_firm_note) else ''}")
 
         st.subheader("INJURED PARTY DETAILS")
         inj_full = st.text_input("Injured/Deceased Party's Full Name (First, Middle, & Last Name)", value=f"{pre_first} {pre_mid} {pre_last}".strip(), key="wag_inj_full")
@@ -1084,6 +1096,9 @@ def render():
         "ConsentRecording": consent_recording,
         "Phone": caller_phone,
         "Email": caller_email,
+        # Prior firm info
+        "PriorFirmSigned": prior_firm_any,
+        "PriorFirmNote": prior_firm_note,
         # Ride
         "Company": company, "Pickup": pickup, "Dropoff": dropoff, "State": state,
         "IncidentDate": fmt_date(incident_date) if incident_date else "UNKNOWN",
@@ -1174,8 +1189,9 @@ def render():
             "Wag_Age": calc_age(st.session_state.get("wag_dob")) if st.session_state.get("wag_dob") else "",
             "Wag_SSN": st.session_state.get("wag_ssn", full_ssn),
             "Wag_ClaimFor": st.session_state.get("wag_claim_for",""),
-            "Wag_PriorFirm": st.session_state.get("wag_prior_firm",""),
-            "Wag_PriorFirmNote": st.session_state.get("wag_prior_firm_note","") if st.session_state.get("wag_prior_firm","NO")=="YES" else "",
+            # No separate prior-firm question here anymore; we export the top-level answers:
+            "Wag_PriorFirmSigned": prior_firm_any,
+            "Wag_PriorFirmNote": prior_firm_note,
             "Wag_InjuredFullName": st.session_state.get("wag_inj_full",""),
             "Wag_InjuredGender": st.session_state.get("wag_inj_gender",""),
             "Wag_InjuredDOB": fmt_date(st.session_state.get("wag_inj_dob")) if st.session_state.get("wag_inj_dob") else "",
