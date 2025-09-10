@@ -292,7 +292,7 @@ def categorical_brief(flags):
     if flags.get("Touching/Kissing w/o Consent"): buckets.append("unwanted touching/kissing")
     if flags.get("Indecent Exposure"): buckets.append("indecent exposure")
     if flags.get("Masturbation Observed"): buckets.append("masturbation observed")
-    if flags.get("Kidnapping Off-Route w/ Threats"): buckets.append("kidnapping off-route w/ threats")
+    if flags.get("Kidnapping Off-Route w/ Threats"): buckets.append("kidnapping w/ threats")
     if flags.get("False Imprisonment w/ Threats"): buckets.append("false imprisonment w/ threats")
     return ", ".join(buckets) if buckets else "—"
 
@@ -665,6 +665,7 @@ def render():
         file_by_deadline = sol_end - timedelta(days=45)
         sol_time_ok = TODAY <= sol_end
 
+    # earliest report math
     all_dates = [d for d in report_dates.values() if d]
     if family_report_dt:
         all_dates.append(family_report_dt.date())
@@ -679,7 +680,7 @@ def render():
     earliest_is_family = (earliest_channels == ["Family/Friends"]) or (set(earliest_channels) == {"Family/Friends"})
 
     # ===== Eligibility =====
-    # Wagstaff
+    # Wagstaff — accepts Uber or Lyft; requires report (or audio/video), no felony, scope, tier, SOL OK, no atty
     has_allowed_report = any(ch in report_dates for ch in ["Rideshare company","Police","Therapist","Physician"]) or ("Family/Friends" in report_dates)
     within_24h_family_ok = True
     if set(report_dates.keys()) == {"Family/Friends"}:
@@ -693,7 +694,7 @@ def render():
     wag_no_felony = (not felony)
     wag_ok = wag_common_ok and wag_report_ok and wag_no_felony
 
-    # Triten
+    # Triten — requires Email/PDF receipt, ID, female rider, not driver, report (family within 14d), no atty, tier, scope, SOL OK, Uber/Lyft
     triten_receipt_ok = ("Email" in receipt_evidence) or ("PDF" in receipt_evidence) or any_pdf_uploaded
     triten_id_ok = bool(gov_id)
     triten_gender_ok = bool(female_rider)
@@ -1008,6 +1009,17 @@ def render():
         tri_claim_for = st.radio("Does the claim pertain to you or another person?", ["Myself","Someone else"], horizontal=True, key="tri_claim_for")
         tri_marital = st.selectbox("Current marital status", ["Single","Married","Divorced","Widowed"], key="tri_marital")
 
+        # NEW: Affirmation at the end of TriTen section
+        st.markdown("---")
+        st.markdown("**Affirmation**")
+        tri_affirmation = st.radio(
+            "[Having just confirmed all the answers you have provided in response to all the questions] "
+            "Do you hereby affirm that the information submitted by you is true and correct in all respects, "
+            "including whether you've ever signed up with another law firm?",
+            ["Yes", "No"], horizontal=True, key="tri_affirmation"
+        )
+        st.markdown("**INTAKE ENDS HERE**")
+
     elif assigned_firm_name == "Wagstaff Law Firm":
         st.subheader("Wagstaff – CLIENT CONTACT DETAILS")
 
@@ -1142,6 +1154,7 @@ def render():
             "TriTen_SSN": st.session_state.get("tri_ssn", full_ssn),
             "TriTen_ClaimFor": st.session_state.get("tri_claim_for",""),
             "TriTen_Marital": st.session_state.get("tri_marital",""),
+            "TriTen_Affirmed": st.session_state.get("tri_affirmation",""),
         })
     elif assigned_firm_name == "Wagstaff Law Firm":
         export_payload.update({
