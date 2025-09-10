@@ -35,7 +35,7 @@ hr {border:0; border-top:1px solid #e5e7eb; margin:12px 0;}
 TODAY = datetime.now()
 
 # =========================
-# BASE SOL TABLE (general tort)
+# SOL TABLE (general tort)
 # =========================
 TORT_SOL = {
     "Kentucky":1,"Louisiana":1,"Tennessee":1,
@@ -49,7 +49,6 @@ TORT_SOL = {
     "Missouri":5,
     "Maine":6,"North Dakota":6,
 }
-
 STATE_ALIAS = {"Washington DC": "D.C.", "District of Columbia": "D.C."}
 STATES = sorted(set(list(TORT_SOL.keys()) + ["D.C."]))
 
@@ -73,33 +72,11 @@ SA_EXT = {
 # NON-LETHAL DEFENSIVE ITEMS
 # =========================
 DEFENSIVE_ITEMS = [
-    "Pepper Spray",
-    "Personal Alarm",
-    "Stun Gun",
-    "Taser",
-    "Self-Defense Keychain",
-    "Tactical Flashlight",
-    "Groin Kickers",
-    "Personal Safety Apps",
-    "Defense Flares",
-    "Baton",
-    "Kubotan",
-    "Umbrella",
-    "Whistle",
-    "Combat Pen",
-    "Pocket Knife",
-    "Personal Baton",
-    "Nunchaku",
-    "Flashbang",
-    "Air Horn",
-    "Bear Spray",
-    "Sticky Foam",
-    "Tactical Scarf or Shawl",
-    "Self-Defense Ring",
-    "Hearing Protection",
+    "Pepper Spray","Personal Alarm","Stun Gun","Taser","Self-Defense Keychain","Tactical Flashlight",
+    "Groin Kickers","Personal Safety Apps","Defense Flares","Baton","Kubotan","Umbrella","Whistle",
+    "Combat Pen","Pocket Knife","Personal Baton","Nunchaku","Flashbang","Air Horn","Bear Spray",
+    "Sticky Foam","Tactical Scarf or Shawl","Self-Defense Ring","Hearing Protection",
 ]
-
-# items clearly treated as *non-disqualifying* defensive tools
 DEFENSIVE_EXEMPT = {
     "Pepper Spray","Bear Spray","Personal Alarm","Whistle","Air Horn",
     "Personal Safety Apps","Tactical Flashlight","Defense Flares","Sticky Foam",
@@ -175,12 +152,11 @@ def nonlethal_exempt(item):
 st.title("Rideshare Intake Qualifier · with Coach + Deep Diagnostics")
 
 def render():
-    # ---------- meta / header ----------
+    # ---------- Permission & prior representation ----------
     st.markdown("**Permission to Record (Private & Confidential)**")
     record_ok = st.checkbox("I have the caller’s permission to record this call for legal/training purposes.", value=False, key="perm_record")
     script_block("Thank you — recording helps protect you and your case. It is private and never filed publicly without your approval.")
 
-    # Prior representation question (moved here per request)
     st.markdown("**Prior Representation Check**")
     prior_repr = st.radio(
         "As far as you can remember, have you signed up with any law firm to represent you on this case but then got disqualified for any reason?",
@@ -190,23 +166,22 @@ def render():
         script_block("Thank you for letting me know. That doesn’t automatically prevent us from helping — it just guides the attorneys on how to proceed carefully.")
     elif prior_repr == "Not sure":
         script_block("Totally fine. If anything comes to mind later, we can note it. This won’t slow us down right now.")
-
     st.markdown("---")
 
-    # ---------- law firm selection early so notes align ----------
+    # ---------- Law firm selection ----------
     lawfirm = st.selectbox("Assign to Law Firm", ["— Select —","Wagstaff Law Firm","TriTen Law"], index=1, key="lawfirm_choice")
     st.markdown("<div class='small'>Your Law Firm Note format and export will match this selection.</div>", unsafe_allow_html=True)
     st.markdown("---")
 
-    # ---------- Q1 Narrative ----------
+    # ---------- Q1 Narrative + Acts ----------
     st.markdown("### Q1. Caller Narrative")
     pc_name = st.text_input("Client full name (PC)", key="client_name")
+    pc_display = pc_name.strip() if pc_name else "—"
 
     narr = st.text_area("In your own words, please feel free to describe what happened during the ride.", key="q1_narr", height=140)
     if narr.strip():
         script_block("That sounds incredibly difficult. Thank you for trusting me with this — you’re not alone, and you’re in a safe space to share only what you’re comfortable sharing.")
 
-    # Acts under narrative
     st.markdown("**Acts (check all that apply)**")
     rape = st.checkbox("Rape/Penetration", key="act_rape")
     forced_oral = st.checkbox("Forced Oral/Forced Touching", key="act_forced_oral")
@@ -228,7 +203,18 @@ def render():
     tier_label, aggr_list = tier_and_aggravators(act_flags)
     base_tier_ok = ("Tier 1" in tier_label) or ("Tier 2" in tier_label)
 
-    # ---------- Q2 Platform + pickup/dropoff ----------
+    # ---------- Education #1 (after Q1) ----------
+    script_block("""Well, let me tell you what people have uncovered about Rideshares and why people like you are coming forward. And again, I appreciate you trusting us with this.
+
+Uber & Lyft have been exposed for improperly screening drivers, failing to remove dangerous drivers, and misrepresenting their safety practices.
+
+For example, the New York Times uncovered sealed court documents showing that over 400,000 incidents of sexual assault and misconduct were reported to Uber between 2017 and 2022 — which is about 1 incident every 8 minutes.
+
+[[ Now when you consider that Uber originally only reported about 12,500 incidents during that same period, you can argue the company has been seriously misleading the level of safety it offers passengers. ]]
+
+Now, we know many people don’t report these incidents. So, coming forward helps you and others obtain justice and compensation. [[ And it truly does help force Uber & Lyft to pay for their negligence, and provide real safety measures so these incidents stop happening. ]]""")
+
+    # ---------- Q2 Platform + Pickup/Dropoff ----------
     st.markdown("### Q2. Which rideshare platform was it?")
     company = st.selectbox("Select platform", ["Uber","Lyft","Other"], key="q2_company")
     script_block("Thanks — that helps us pull the correct records and reporting instructions for that platform.")
@@ -242,14 +228,10 @@ def render():
     # ---------- Q3 Receipt (confident ask) + send method ----------
     st.markdown("### Q3. Ride Receipt")
     st.markdown("**Receipt requirement (read confidently):**")
-    pc_display = pc_name.strip() if pc_name else "—"
     st.markdown(
-        f"<div class='callout'>"
-        f"{pc_display}, we need the ride receipt — both the email copy and the in-app receipt (a screenshot works). "
-        f"Please forward them so the firm can verify the trip and lock in the timeline."
-        f"</div>", unsafe_allow_html=True
+        f"<div class='callout'>{pc_display}, we need the ride receipt — both the email copy and the in-app receipt (a screenshot works). "
+        f"Please forward them so the firm can verify the trip and lock in the timeline.</div>", unsafe_allow_html=True
     )
-
     receipt = st.toggle("Receipt available now (email/app/PDF)", value=False, key="q3_receipt_toggle")
     receipt_evidence = st.multiselect(
         "What can you provide as receipt evidence?",
@@ -259,7 +241,6 @@ def render():
     receipt_evidence_other = st.text_input("If Other, describe", key="receipt_evidence_other")
     if receipt_evidence_other and "Other" not in receipt_evidence:
         receipt_evidence.append(f"Other: {receipt_evidence_other.strip()}")
-
     if receipt_evidence:
         script_block("Thank you — those docs make a huge difference for the attorneys. They’re some of the strongest pieces of proof for rideshare cases.")
 
@@ -270,12 +251,17 @@ def render():
         unsafe_allow_html=True
     )
     sms_phone = st.text_input("Mobile number for SMS", key="sms_phone")
-    best_phone = st.text_input("Best phone number (will auto-fill from SMS if left blank)", value=sms_phone, key="best_phone")
+    best_phone = st.text_input("Best phone number (auto-fills from SMS if left blank)", value=sms_phone, key="best_phone")
     doc_send_pref = st.selectbox(
         "How would you like to send documentation (receipts/ID/therapy notes/prescriptions)?",
         ["— Choose —","Texted link to upload photos","Email to jay@advocaterightscenter.com","FedEx/UPS fax"],
         key="doc_send_method"
     )
+
+    # ---------- Education #2 (after Q3) ----------
+    script_block(f"""{pc_display if pc_display!='—' else ''} what’s especially troubling is that Uber and Lyft have had knowledge of these dangers since at least 2014.
+That year, Uber introduced a $1 ‘Safe Rides Fee’ — claiming it funded driver checks and safety upgrades. But investigations found that most of the $500 million collected went to profit, not safety.
+They later just renamed it a ‘booking fee.’ Survivors were paying for safety that never arrived.""")
 
     # ---------- Q4 Incident date ----------
     st.markdown("### Q4. Do you remember the date this happened?")
@@ -294,37 +280,35 @@ def render():
     report_dates = {}
     family_report_dt = None
 
-    # Per-channel details
-    # Rideshare
+    # Rideshare company details
     if "Rideshare Company" in reported_to:
         report_dates["Rideshare company"] = st.date_input("Date reported to Rideshare company", value=TODAY.date(), key="q5_dt_rs")
         rs_company_select = st.selectbox("Which rideshare did you report to?", ["Uber","Lyft","Other/Unknown"], key="q5_rs_which")
     else:
-        # Offer soft prompt to report to platform chosen in Q2
         if company in ("Uber","Lyft"):
-            script_block(f"If you’re open to it, the attorney may ask you to report to {company} to strengthen your case. I can send the step-by-step instructions when you’re ready.")
+            script_block(f"Are you open if the attorney requests you to report to {company} to strengthen your case? I can send you a simple step-by-step when you’re ready.")
 
-    # Police
+    # Police details
     if "Police Department" in reported_to:
         report_dates["Police"] = st.date_input("Date reported to Police", value=TODAY.date(), key="q5_dt_police")
         police_station = st.text_input("Name of Police Station", key="q5_police_name")
         police_address = st.text_input("Police Station Address", key="q5_police_addr")
 
-    # Therapist
+    # Therapist details
     if "Therapist" in reported_to:
         report_dates["Therapist"] = st.date_input("Date reported to Therapist", value=TODAY.date(), key="q5_dt_ther")
         ther_name = st.text_input("Therapist Name", key="q5_ther_name")
         ther_fac = st.text_input("Therapist Clinic/Hospital Name", key="q5_ther_fac")
         ther_addr = st.text_input("Therapist Clinic/Hospital Address", key="q5_ther_addr")
 
-    # Physician
+    # Physician details
     if "Physician" in reported_to:
         report_dates["Physician"] = st.date_input("Date reported to Physician", value=TODAY.date(), key="q5_dt_phys")
         phys_name = st.text_input("Physician Name", key="q5_phys_name")
         phys_fac = st.text_input("Physician Clinic/Hospital Name", key="q5_phys_fac")
         phys_addr = st.text_input("Physician Clinic/Hospital Address", key="q5_phys_addr")
 
-    # Family/Friend
+    # Family/Friend details
     if "Friend or Family Member" in reported_to:
         ff_date = st.date_input("Date informed Friend/Family", value=TODAY.date(), key="q5_dt_ff")
         ff_time = st.time_input("Time informed Friend/Family", value=time(21,0), key="q5_tm_ff")
@@ -343,6 +327,12 @@ def render():
     inside_near = scope_choice in ("Inside the car","Just outside the car","Continued after exit / nearby")
     if inside_near and scope_choice != "— Select —":
         script_block("Understood. That keeps the incident within the rideshare’s safety responsibility. Thank you for clarifying.")
+
+    # ---------- Education #3 (after Q6) ----------
+    script_block(f"""{pc_display if pc_display!='—' else ''} based on what you’ve told me, you might have a valid case. Here’s how pursuing a settlement works:
+You hire the law firm on a contingency basis — no upfront costs, no out-of-pocket fees. You only owe if they win you a recovery.
+We are the intake center for The Wagstaff Law Firm. Their attorneys are nationally recognized — many named Super Lawyers (top 5% of all attorneys). Judges across the country have appointed them to nine national Plaintiff Steering Committees, reserved for the top trial lawyers in corporate negligence cases.
+They’re now applying that same leadership to hold Uber and Lyft accountable for failing survivors like you.""")
 
     # ---------- Q7 Injury ----------
     st.markdown("### Q7. Were you injured physically, or have you experienced emotional effects afterward?")
@@ -378,10 +368,11 @@ def render():
         visit_first = None
         visit_last = None
 
+    # ---------- Education #4 (after Q8 if shown; else still present now) ----------
+    script_block(f"""{pc_display if pc_display!='—' else ''} once the bellwether trials conclude, those results usually spark settlement negotiations. That’s when distributions begin — survivors don’t have to wait for every trial to finish. The test results give both sides the framework to resolve cases sooner.""")
+
     # ---------- Standard Screening ----------
     st.markdown("### Standard Screening")
-
-    # ID, Female rider, Atty
     female_rider = st.toggle("Female rider", value=False, key="elig_female")
     gov_id = st.toggle("Government ID provided", value=False, key="elig_id")
     if not gov_id:
@@ -419,30 +410,26 @@ def render():
     verbal_only = st.toggle("Verbal abuse only (no sexual acts)", value=False, key="elig_verbal_only")
     attempt_only = st.toggle("Attempt/minor contact only", value=False, key="elig_attempt_only")
 
-    # Felony question (polite verbatim)
+    # Criminal history (polite verbatim)
     st.markdown("**Criminal History**")
     felony = st.toggle("This will not affect your case. So the law firm can be prepared for any character issues, do you have any felonies or criminal history?", value=False, key="elig_felony")
 
     # ---------- Contact & Screening ----------
     st.markdown("### Contact & Screening")
     email = st.text_input("Primary email", key="contact_email")
-    if sms_phone and (not best_phone or best_phone.strip() == ""):
-        best_phone_val = sms_phone
-    else:
-        best_phone_val = best_phone
+    best_phone_val = best_phone if best_phone else sms_phone
 
-    # ---------- Incident state/time for SOL ----------
+    # ---------- Incident state/time (for SOL) ----------
     st.markdown("### Incident State & Time")
     state = st.selectbox("Incident State", STATES, index=(STATES.index("California") if "California" in STATES else 0), key="q6_state")
     incident_time = st.time_input("Incident time", value=time(21,0), key="time_for_calc")
-    used_date = incident_date or TODAY.date()
+    used_date = (incident_date or TODAY.date())
     incident_dt = datetime.combine(used_date, incident_time)
 
-    # ---------- SA category & SOL ----------
+    # ---------- SOL & categories ----------
     category = sa_category(act_flags)  # 'penetration' | 'other' | None
     sol_state = STATE_ALIAS.get(state, state)
     sol_years, sol_rule_text, used_sa = sol_rule_for(sol_state, category)
-
     if sol_years is None:
         sol_end = None
         wagstaff_deadline = None
@@ -453,23 +440,20 @@ def render():
         wagstaff_time_ok = TODAY <= wagstaff_deadline
 
     # ---------- Reporting timelines ----------
-    # gather earliest relevant report date
     all_dates = [d for d in report_dates.values() if d]
     if family_report_dt: all_dates.append(family_report_dt.date())
     earliest_report_date = min(all_dates) if all_dates else None
 
-    # Triten nuance: 14-day rule applies if Friend/Family is the reporting channel *without other channels*
+    # Triten: 14-day rule if ONLY family/friend
     if "Friend or Family Member" in reported_to and set(reported_to).issubset({"Friend or Family Member"}):
         delta_days = (family_report_dt.date() - incident_dt.date()).days if family_report_dt else None
         triten_report_ok = (delta_days is not None) and (0 <= delta_days <= 14)
     else:
-        # reported via company / police / therapist / physician — accept timeline as OK
         triten_report_ok = bool(reported_to and "NO (none yet)" not in reported_to)
         delta_days = (earliest_report_date - incident_dt.date()).days if earliest_report_date else None
 
-    # ---------- Wagstaff disqualifiers & rules ----------
+    # ---------- Wagstaff rules ----------
     wag_disq = []
-    # Wagstaff requires report to at least one accepted channel, or family/friend within 24h
     wag_report_channels = {"Rideshare company","Police","Therapist","Physician"}
     wag_any_channel = any(k in report_dates for k in wag_report_channels)
     family_only_selected = set(reported_to) == {"Friend or Family Member"}
@@ -486,7 +470,6 @@ def render():
 
     wag_report_ok = wag_any_channel or (family_only_selected and within_24h_family_ok)
 
-    # firm-specific constraints
     if felony:
         wag_disq.append("Felony record — Wagstaff may not accept.")
     if driver_force == "Yes":
@@ -502,19 +485,17 @@ def render():
 
     common_ok = bool(female_rider and gov_id and inside_near and (not has_atty) and receipt)
     wag_ok_core = common_ok and wagstaff_time_ok and base_tier_ok and wag_report_ok and (not verbal_only) and (not attempt_only)
-    wag_ok_company = company in ("Uber","Lyft")  # Wagstaff accepts Uber & Lyft now
-    # If carried item is a clearly defensive tool, do not DQ on that basis
+    wag_ok_company = company in ("Uber","Lyft")  # Wagstaff accepts both
     carried_weapon_dq = False
     if client_weapon:
         if carried_item and carried_item != "— Select —":
             carried_weapon_dq = not nonlethal_exempt(carried_item)
         else:
-            carried_weapon_dq = True  # said "Yes" but no item provided
+            carried_weapon_dq = True
     wag_ok = wag_ok_core and wag_ok_company and (driver_force != "Yes") and (not carried_weapon_dq) and (not felony)
 
     # ---------- Triten rules ----------
     tri_disq = []
-    # Receipt must include Email or PDF
     has_required_receipt_type = any(x in receipt_evidence for x in ["PDF","Email"])
     if not receipt or not has_required_receipt_type:
         tri_disq.append("Receipt requirement (Email or PDF) not satisfied.")
@@ -526,64 +507,32 @@ def render():
         tri_disq.append("Already has an attorney.")
     if verbal_only or attempt_only:
         tri_disq.append("Verbal only or attempt/minor contact — does not qualify.")
-    # Triten accepts felony records (no disq)
     if not inside_near:
         tri_disq.append("Incident not confirmed inside/near the vehicle.")
     if not base_tier_ok:
         tri_disq.append("Tier unclear — needs Tier 1 or Tier 2 acts.")
     if not triten_report_ok:
         tri_disq.append("Friend/Family-only reporting exceeded 14 days or missing date.")
-
     triten_ok = (len(tri_disq) == 0)
 
     # ---------- Badges ----------
     st.markdown("---")
     st.subheader("Eligibility Snapshot")
-    b1, b2, b3 = st.columns(3)
-    with b1:
+    c1, c2, c3 = st.columns(3)
+    with c1:
         st.markdown("<div class='badge-note'>Tier</div>", unsafe_allow_html=True)
         badge(True, tier_label if tier_label != "Unclear" else "Tier unclear")
-    with b2:
+    with c2:
         st.markdown("<div class='badge-note'>Wagstaff</div>", unsafe_allow_html=True)
         badge(wag_ok, "Eligible" if wag_ok else "Not Eligible")
-    with b3:
+    with c3:
         st.markdown("<div class='badge-note'>Triten</div>", unsafe_allow_html=True)
         badge(triten_ok, "Eligible" if triten_ok else "Not Eligible")
-
-    # ---------- Education Inserts ----------
-    st.markdown("---")
-    st.subheader("Education Inserts")
-    with st.expander("Education #1 — How This Happened"):
-        script_block("""Well, let me tell you what people have uncovered about Rideshares and why people like you are coming forward. And again, I appreciate you trusting us with this.
-
-Uber & Lyft have been exposed for improperly screening drivers, failing to remove dangerous drivers, and misrepresenting their safety practices.
-
-For example, the New York Times uncovered sealed court documents showing that over 400,000 incidents of sexual assault and misconduct were reported to Uber between 2017 and 2022 — which is about 1 incident every 8 minutes.
-
-[[ Now when you consider that Uber originally only reported about 12,500 incidents during that same period, you can argue the company has been seriously misleading the level of safety it offers passengers. ]]
-
-Now, we know many people don’t report these incidents. So, coming forward helps you and others obtain justice and compensation. [[ And it truly does help force Uber & Lyft to pay for their negligence, and provide real safety measures so these incidents stop happening. ]]""")
-
-    with st.expander("Education #2 — Safe Rides Fee"):
-        name_stub = pc_display if pc_display != "—" else "—"
-        script_block(f"""{name_stub}, what’s especially troubling is that Uber and Lyft have had knowledge of these dangers since at least 2014.
-That year, Uber introduced a $1 ‘Safe Rides Fee’ — claiming it funded driver checks and safety upgrades. But investigations found that most of the $500 million collected went to profit, not safety.
-They later just renamed it a ‘booking fee.’ Survivors were paying for safety that never arrived.""")
-
-    with st.expander("Education #3 — Law Firm & Contingency"):
-        script_block(f"""{pc_display}, based on what you’ve told me, you might have a valid case. Here’s how pursuing a settlement works:
-You hire the law firm on a contingency basis — no upfront costs, no out-of-pocket fees. You only owe if they win you a recovery.
-We are the intake center for The Wagstaff Law Firm. Their attorneys are nationally recognized — many named Super Lawyers (top 5% of all attorneys). Judges across the country have appointed them to nine national Plaintiff Steering Committees, reserved for the top trial lawyers in corporate negligence cases.
-They’re now applying that same leadership to hold Uber and Lyft accountable for failing survivors like you.""")
-
-    with st.expander("Education #4 — Timeline for Settlement Distribution"):
-        script_block(f"""{pc_display}, once the bellwether trials conclude, those results usually spark settlement negotiations. That’s when distributions begin — survivors don’t have to wait for every trial to finish. The test results give both sides the framework to resolve cases sooner.""")
 
     # ---------- Diagnostics ----------
     st.markdown("---")
     st.subheader("Diagnostics")
 
-    # Wagstaff diagnostics
     st.markdown("#### Wagstaff")
     wag_lines = []
     wag_lines.append(f"• Tier = {tier_label}.")
@@ -625,7 +574,6 @@ They’re now applying that same leadership to hold Uber and Lyft accountable fo
 
     st.markdown("<div class='kv'>" + "\n".join(wag_lines) + "</div>", unsafe_allow_html=True)
 
-    # Triten diagnostics
     st.markdown("#### Triten")
     tri_lines = []
     tri_lines.append(f"• Tier = {tier_label}.")
@@ -643,10 +591,9 @@ They’re now applying that same leadership to hold Uber and Lyft accountable fo
         tri_lines.append("• Tier unclear.")
     if tri_disq:
         tri_lines.extend([f"• {x}" for x in tri_disq])
-
     st.markdown("<div class='kv'>" + "\n".join(tri_lines) + "</div>", unsafe_allow_html=True)
 
-    # ---------- Summary Table ----------
+    # ---------- Summary ----------
     st.markdown("---")
     st.subheader("Summary")
     sol_end_str = ("No SOL" if sol_years is None else (fmt_dt(sol_end) if sol_end else "—"))
@@ -672,12 +619,10 @@ They’re now applying that same leadership to hold Uber and Lyft accountable fo
     # ---------- Law Firm Note (Copy & Send) ----------
     st.markdown("---")
     st.subheader("Law Firm Note (Copy & Send)")
-
     marketing_source = st.text_input("Marketing Source", key="marketing_source")
     created_str = TODAY.strftime("%B %d, %Y")
     tier_simple = "Tier 1 Case" if "Tier 1" in tier_label else ("Tier 2 Case" if "Tier 2" in tier_label else "Tier Unclear")
 
-    # Build Note body
     checks = []
     if gov_id: checks.append("State ID")
     if receipt and receipt_evidence: checks.append("Receipt docs")
@@ -685,7 +630,6 @@ They’re now applying that same leadership to hold Uber and Lyft accountable fo
     ssn_full = st.text_input("Social Security Number (Full preferred; last 4 if declining full)", key="ssn_full_or_last4")
     if ssn_full.strip():
         checks.append("SSN on file")
-
     gdrive_link = st.text_input("GDrive (optional)", key="gdrive_link")
 
     note_header = f"RIDESHARE {('Waggy' if lawfirm=='Wagstaff Law Firm' else 'TriTen')} | {'Retained' if (wag_ok or triten_ok) else 'Intake'}"
@@ -699,7 +643,6 @@ They’re now applying that same leadership to hold Uber and Lyft accountable fo
         f"Marketing Source: {marketing_source or '—'}",
         f"Created: {created_str}",
     ]
-    # checkmarks
     for c in checks:
         note_lines.append(f":white_check_mark:{c}")
     if gdrive_link:
@@ -708,22 +651,13 @@ They’re now applying that same leadership to hold Uber and Lyft accountable fo
     law_note_text = "\n".join(note_lines)
 
     st.text_area("Final Note (editable)", value=law_note_text, key="final_note", height=200)
-
-    st.download_button(
-        "Download Note as .txt (Notepad-friendly)",
-        data=st.session_state["final_note"].encode("utf-8"),
-        file_name="law_firm_note.txt",
-        mime="text/plain"
-    )
+    st.download_button("Download Note as .txt (Notepad-friendly)", data=st.session_state["final_note"].encode("utf-8"), file_name="law_firm_note.txt", mime="text/plain")
 
     # ---------- Detailed Report (monospace) ----------
     st.markdown("---")
     st.subheader("Detailed Report — Elements of Statement of the Case for RIDESHARE (monospace)")
-
     acts_selected = [k for k, v in act_flags.items() if v and k not in ("Kidnapping Off-Route w/ Threats", "False Imprisonment w/ Threats")]
     aggr_selected = [k for k in ("Kidnapping Off-Route w/ Threats","False Imprisonment w/ Threats") if act_flags.get(k)]
-
-    # Reporting channels summary
     earliest_channels = []
     if earliest_report_date:
         for k, v in report_dates.items():
@@ -732,7 +666,6 @@ They’re now applying that same leadership to hold Uber and Lyft accountable fo
 
     elements = []
     def add_line(num, text): elements.append(f"{num}. {text}")
-
     add_line(1, f"Date of ride: {fmt_date(incident_date) if incident_date else 'UNKNOWN'}")
     add_line(2, f"Name of PC: {pc_display if pc_display!='—' else 'UNKNOWN'}")
     add_line(3, f"Reserved a ride with: {company}")
@@ -763,11 +696,10 @@ They’re now applying that same leadership to hold Uber and Lyft accountable fo
     add_line(21, f"Wagstaff file-by (SOL − 45d): {('N/A (No SOL)' if sol_years is None else fmt_dt(wagstaff_deadline))}")
     add_line(22, f"Wagstaff Eligibility: {'Eligible' if wag_ok else 'Not Eligible'}")
     add_line(23, f"Triten Eligibility: {'Eligible' if triten_ok else 'Not Eligible'}")
-
     elements_text = "\n".join(elements)
     st.markdown(f"<div class='copy'>{elements_text}</div>", unsafe_allow_html=True)
 
-    # Exports — CSV and TXT
+    # ---------- Exports ----------
     st.markdown("#### Export")
     export_payload = {
         "ClientName": pc_display, "Narrative": narr, "Company": company, "State": state,
@@ -798,10 +730,7 @@ They’re now applying that same leadership to hold Uber and Lyft accountable fo
         "SSN": ssn_full or "—",
         "Elements_Report": elements_text.strip()
     }
-
-    # CSV with basic formatting expectations (Excel)
-    csv_bytes = pd.DataFrame([export_payload]).to_csv(index=False).encode("utf-8")
-    st.download_button("Download CSV (Excel)", data=csv_bytes, file_name="intake_decision.csv", mime="text/csv")
+    st.download_button("Download CSV (Excel)", data=pd.DataFrame([export_payload]).to_csv(index=False).encode("utf-8"), file_name="intake_decision.csv", mime="text/csv")
 
     # ---------- Firm-Specific Client Contact Details ----------
     st.markdown("---")
@@ -824,7 +753,7 @@ They’re now applying that same leadership to hold Uber and Lyft accountable fo
         tri_best_time = st.text_input("Best Time to Contact", key="tri_best_time")
         tri_pref_method = st.selectbox("Preferred Method of Contact", ["Phone","Email","Phone & Email","Text"], index=2, key="tri_pref_method")
         tri_dob = st.date_input("Date of Birth (mm-dd-yyyy)", value=TODAY.date(), key="tri_dob")
-        # Auto age from DOB
+
         def calc_age(dob):
             if not isinstance(dob, date): return "—"
             todayd = TODAY.date()
@@ -832,12 +761,14 @@ They’re now applying that same leadership to hold Uber and Lyft accountable fo
             return years
         tri_age = calc_age(tri_dob)
         st.markdown(f"**Age:** {tri_age}")
+
         tri_ssn = st.text_input("Social Security No. (full preferred; last 4 if declining full)", value=ssn_full, key="tri_ssn")
         st.markdown(
             "<div class='info'>The hospital must ensure they send the correct information. For legal purposes and proper documentation, we need your full name, address, date of birth, and Social Security number. "
             "I understand sharing SSN can feel sensitive, but it protects your identity and ensures the settlement goes to the right person. If you prefer, you can share just the <b>last 4 digits</b>; those are often enough for HIPAA releases.</div>",
             unsafe_allow_html=True
         )
+
         tri_claim_for = st.selectbox("Does the claim pertain to you or another person?", ["Myself","Someone else"], key="tri_claim_for")
         tri_marital = st.selectbox("Current marital status", ["Single","Married","Divorced","Widowed"], key="tri_marital")
 
@@ -846,7 +777,6 @@ They’re now applying that same leadership to hold Uber and Lyft accountable fo
         tri_inj_gender = st.selectbox("Injured Party Gender", ["Female","Male","Non-binary","Prefer not to say"], key="tri_inj_gender")
         tri_inj_dob = st.date_input("Injured/Deceased Party's DOB (mm-dd-yyyy)", value=tri_dob, key="tri_inj_dob")
 
-        # Affirmation at the end (as requested)
         st.markdown("---")
         affirm = st.radio(
             "[Having just confirmed all the answers you provided] Do you affirm that the information is true and correct in all respects, including whether you've ever signed up with another law firm?",
@@ -928,15 +858,14 @@ They’re now applying that same leadership to hold Uber and Lyft accountable fo
         ],
         key="obj_picker"
     )
-
     obj_map = {
         "Incident Not Qualified": "I apologize, but the incident does not meet our firm's criteria. If that changes, we’ll contact you. In the meantime, consider reaching out to other firms.",
         "How much is the settlement": "I don't want to misinform you — it depends on the specifics and trauma involved. For context, in Dec 2022 the California PUC approved a $9M settlement with Uber regarding reporting issues; each case is unique.",
         "How much will the law firm charge me": "Standard fee is 40% due to the risks involved. You owe nothing upfront. We’ll handle records and expert review. If there’s no recovery — you owe nothing.",
         "PC Disagreement Over 40% Fee": "I respect that. Most firms use this fee due to uncertainty. You’re paying for seasoned counsel and convenience — no record chasing or court appearances for you. If you proceed today, we move forward with no upfront payment.",
         "Asking ID and other evidences": "To qualify, we need to retrieve medical/therapy records and confirm identity so funds go to the right person. Please provide a government ID + selfie, and any records/photos/med bottles that support your claim.",
-        "Asking SSN": "The hospital must ensure they send the correct information... (full explanation as above).",
-        "Asking last 4 digits - SSN": "Can I get just the last four digits for HIPAA releases? These remain private and confidential.",
+        "Asking SSN": "The hospital must ensure they send the correct information. For legal purposes and proper documentation, we need your full name, address, date of birth, and Social Security number. It’s essential to protect your identity and ensure any settlement goes to you.",
+        "Asking last 4 digits - SSN": "If you prefer, you can share just the last four digits for HIPAA releases; these remain private and confidential.",
         "I did not submit my information": "You likely filled out a survey or form online. If you or a loved one experienced a rideshare sexual assault, we can connect you with top attorneys. I’m here to help you pursue a settlement.",
         "Where are you from": "I’m calling from Dallas, Texas, representing the Advocate Rights Center, an intake center for your selected firm.",
         "Scam Suspicions": "I won’t need bank details. We ask only for information needed to obtain records and prove your claim. This protects your identity and strengthens your case.",
@@ -953,18 +882,18 @@ They’re now applying that same leadership to hold Uber and Lyft accountable fo
         "RSA District Court?": "Claims are consolidated in the U.S. District Court for the Northern District of California under Judge Charles Breyer (MDL No. 3084).",
         "Settlement Claims in Rideshare Assault": "Medical expenses, emotional distress, lost wages, punitive damages, legal fees, pain/suffering, future medical, loss of enjoyment, property damage, loss of consortium.",
         "Rideshare Companies in Litigation": "Uber, Lyft, Via, Ola, Grab, Didi Chuxing, Bolt, Gett.",
-        "Medical Office Three-Way Call": "We can 3-way call your provider to confirm last visit and condition (with your permission). This is to validate the claim, not for evidence — the records cover that.",
+        "Medical Office Three-Way Call": "We can 3-way call your provider to confirm last visit and condition (with your permission). This validates the claim; records provide the evidence.",
         "Wagstaff Law Information": "Wagstaff Law Firm — 940 Lincoln St, Denver, CO 80203; 303-376-6360; https://www.wagstafflawfirm.com/",
         "Instructions for Resending Rideshare Receipts": "Uber: Activity tab → ride → Receipt → resend email. Lyft: Ride history → ride → Resend receipt.",
-        "How to Report an Assault to Uber/Lyft": "See guide link: https://docs.google.com/document/d/1Oiljbf3oHqtoKDv2jArsXMIVw5hhuNrRiZ1MDl0aoqo/edit",
+        "How to Report an Assault to Uber/Lyft": "Guide: https://docs.google.com/document/d/1Oiljbf3oHqtoKDv2jArsXMIVw5hhuNrRiZ1MDl0aoqo/edit",
         "Script for Irate Callers": "https://docs.google.com/document/d/1wlQurtqG_0tVIUhBfHXL2R8fF58i8s64/edit",
         "Responding to Law Firm": "https://docs.google.com/document/d/1BNJoF14vqEkH2WojUC_H7AsWUmu-ZC1NVmvO0J_GN9Q/edit",
         "Using Plaid: Quick Directions (link)": "https://docs.google.com/document/d/1P_jodMzz-2vc0vQsDbgCimCBDGDHyuNaFqyE7KmbO5Y/edit",
         "ID and Proof Retrieval Script": "https://docs.google.com/document/d/1DTcBIWg4NJfEgETe4bwagbz4refPSyoP/edit",
         "Mailer – Commitment Script": "https://docs.google.com/document/d/1VMxf5JcVIFN2ABXmkLHKdkvYJ6tfmSmIp0jlMrh7glE/edit",
-        "Esign Guide Text": "https://docs.google.com/document/d/1e6sGJB8wRPwa2_sBEvLbDl4wUM4TsS8f46agwNWvIRE/edit",
+        "Esign Guide Text": "https://docs.google.com/document/d/1e6sGJB8wRPwa2_sBEvLbDl4wUM4Ts8f46agwNWvIRE/edit",
         "Esign Guide Email": "https://docs.google.com/document/d/1zVTewqs7jtAB_yL0cdz8vz_8o-IfgoYVhj4KPNNG9M8/edit",
-        "Identity Verification Links": "https://besthistorysites.net/ (placeholder; replace with your internal link)",
+        "Identity Verification Links": "https://besthistorysites.net/ (placeholder; replace internally)",
         "PLAID Link": "https://advocaterightscenter.com/plaid_verification/",
         "How to Send Plaid Link to Clients": "https://docs.google.com/document/d/1huakazfAU_-P3PORmcP5DLrdIn_pHRzGNjjdjnOWwVw/edit",
         "How to Guide Clients in Plaid Text": "https://docs.google.com/document/d/19Uj2gXI1WKOlnaVprvryvYipOgMAAum2gR4uDsMJ7B8/edit",
