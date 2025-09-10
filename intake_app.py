@@ -528,9 +528,7 @@ def render():
     # If NOT reported to rideshare company: show auto-filled suggestion based on Q2
     if "Rideshare Company" not in reported_to:
         target = company if company in ("Uber","Lyft") else "the rideshare company"
-        script_block(
-            f"Are you open if the Atty would request for you to report to {target} to strengthen your case?"
-        )
+        script_block(f"Are you open if the Atty would request for you to report to {target} to strengthen your case?")
 
     # Q6 — Scope
     st.markdown("**Q6. Did the incident happen inside the car, just outside, or did it continue after you exited?**")
@@ -633,11 +631,21 @@ def render():
         "The test results give both sides the framework to resolve cases sooner.”"
     )
 
-    # Identity for records (optional)
-    st.markdown("### Identity for Records (Optional)")
-    script_block("If you prefer, you can share just the **last 4 digits**; those are often enough for HIPAA releases.")
+    # =========================
+    # Identity for Records (Full SSN + last4 fallback)
+    # =========================
+    st.markdown("### Identity for Records")
+    pc_name_local = caller_full_name or caller_legal_name or "there"
+    st.markdown(f"**{pc_name_local}, I need your Social Security Number.**")
+    script_block(
+        "The hospital must ensure they send the correct information. For legal purposes and proper documentation, we need your full name, address, date of birth, and Social Security number. "
+        "I understand your concerns about sharing your Social Security number, but it’s essential for protecting your identity and ensuring that any settlement goes to the right person. "
+        "This helps prevent relatives from falsely claiming the settlement and avoids potential financial issues. Your cooperation is vital for a smooth legal process."
+    )
+    full_ssn = st.text_input("Social Security Number (###-##-####)", key="full_ssn")
+    st.caption("If you prefer, you can share just the **last 4 digits**; those are often enough for HIPAA releases.")
     ssn_last4 = st.text_input("SSN last 4 (optional)", max_chars=4, key="ssn_last4")
-    full_ssn_on_file = st.checkbox("Full SSN on file", value=False, key="full_ssn_on_file")
+    full_ssn_on_file = bool(full_ssn.strip())
 
     # ========= Calculations =========
     used_date = (incident_date or TODAY.date())
@@ -858,7 +866,7 @@ def render():
     add_line(11, f"Medication: {medication_name or '—'} | Pharmacy: {pharmacy_name or '—'}")
     add_line(12, f"Submission: {rs_submit_how or '—'} | Company responded: {'Yes' if rs_received_response else 'No'} | Detail: {rs_response_detail or '—'}")
     add_line(13, f"Phone / Email: {caller_phone or '—'} / {caller_email or '—'}")
-    add_line(14, f"Screen — Gov ID: {'Yes' if gov_id else 'No'} | Female: {'Yes' if female_rider else 'No'} | Rider (not driver): {'Yes' if rider_not_driver else 'No'} | Felony: {'Yes' if felony else 'No'} | Has Atty: {'Yes' if has_atty else 'No'}")
+    add_line(14, f"Screen — Gov ID: {'Yes' if gov_id else 'No'} | Female: {'Yes' if female_rider else 'No'} | Rider (not driver): {'Yes' if rider_not_driver else 'No'} | Felony: {'Yes' if felony else 'No'} | Has Atty: {'Yes' if has_atty else 'No'} | SSN captured: {'Yes' if full_ssn_on_file or ssn_last4 else 'No'}")
     add_line(15, f"Acts selected: {join_list(acts_selected)} | Aggravators: {join_list(aggr_selected)}")
     add_line(16, f"Tier: {tier_label}")
     add_line(17, f"SOL rule applied: {sol_rule_text} | SOL end: {('No SOL' if sol_years is None else fmt_dt(sol_end))} | File-by (SOL−45d): {file_by_str}")
@@ -994,7 +1002,8 @@ def render():
         tri_age = calc_age(tri_dob) if tri_dob else ""
         st.caption(f"Age: {tri_age if tri_age!='' else '—'}")
 
-        tri_ssn = st.text_input("Social Security No.", key="tri_ssn")
+        # Reflect full SSN captured above into TriTen field
+        tri_ssn = st.text_input("Social Security No.", value=(full_ssn if full_ssn else ""), key="tri_ssn")
 
         tri_claim_for = st.radio("Does the claim pertain to you or another person?", ["Myself","Someone else"], horizontal=True, key="tri_claim_for")
         tri_marital = st.selectbox("Current marital status", ["Single","Married","Divorced","Widowed"], key="tri_marital")
@@ -1020,7 +1029,8 @@ def render():
         wag_age = calc_age(wag_dob) if wag_dob else ""
         st.caption(f"Age: {wag_age if wag_age!='' else '—'}")
 
-        wag_ssn = st.text_input("Social Security No.", key="wag_ssn")
+        # Reflect full SSN captured above into Wagstaff field
+        wag_ssn = st.text_input("Social Security No.", value=(full_ssn if full_ssn else ""), key="wag_ssn")
 
         wag_claim_for = st.radio("Does the claim pertain to you or another person?", ["Myself","Someone Else"], horizontal=True, key="wag_claim_for")
         wag_prior_firm = st.radio(
@@ -1087,7 +1097,7 @@ def render():
         "ProviderName": provider_name, "ProviderFacility": provider_facility, "TherapyStartDate": fmt_date(therapy_start) if therapy_start else "—",
         "Medication": medication_name, "Pharmacy": pharmacy_name,
         # Identity
-        "SSN_Last4": ssn_last4, "FullSSN_OnFile": full_ssn_on_file,
+        "FullSSN": full_ssn, "SSN_Last4": ssn_last4, "FullSSN_OnFile": full_ssn_on_file,
         # Screening
         "GovIDProvided": gov_id, "FemaleRider": female_rider, "RiderNotDriver": rider_not_driver, "HasAttorney": has_atty, "Felony": felony,
         # Acts
@@ -1129,7 +1139,7 @@ def render():
             "TriTen_PrefMethod": st.session_state.get("tri_pref_method",""),
             "TriTen_DOB": fmt_date(st.session_state.get("tri_dob")) if st.session_state.get("tri_dob") else "",
             "TriTen_Age": calc_age(st.session_state.get("tri_dob")) if st.session_state.get("tri_dob") else "",
-            "TriTen_SSN": st.session_state.get("tri_ssn",""),
+            "TriTen_SSN": st.session_state.get("tri_ssn", full_ssn),
             "TriTen_ClaimFor": st.session_state.get("tri_claim_for",""),
             "TriTen_Marital": st.session_state.get("tri_marital",""),
         })
@@ -1149,7 +1159,7 @@ def render():
             "Wag_PrefMethod": st.session_state.get("wag_pref_method",""),
             "Wag_DOB": fmt_date(st.session_state.get("wag_dob")) if st.session_state.get("wag_dob") else "",
             "Wag_Age": calc_age(st.session_state.get("wag_dob")) if st.session_state.get("wag_dob") else "",
-            "Wag_SSN": st.session_state.get("wag_ssn",""),
+            "Wag_SSN": st.session_state.get("wag_ssn", full_ssn),
             "Wag_ClaimFor": st.session_state.get("wag_claim_for",""),
             "Wag_PriorFirm": st.session_state.get("wag_prior_firm",""),
             "Wag_PriorFirmNote": st.session_state.get("wag_prior_firm_note","") if st.session_state.get("wag_prior_firm","NO")=="YES" else "",
