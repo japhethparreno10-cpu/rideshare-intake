@@ -81,7 +81,6 @@ SA_EXT = {
                      "summary": "No SOL for rape/penetration of mouth, anus, or vagina; 2-year SOL for all other conduct."},
 }
 
-# Extra state list for address forms
 STATE_LIST_FORM = [
     "Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware","Florida","Georgia","Hawaii",
     "Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan",
@@ -91,22 +90,165 @@ STATE_LIST_FORM = [
 ]
 
 # =========================
+# OBJECTION SCRIPTS / REFERENCES
+# =========================
+OBJECTION_SCRIPTS = {
+    "Incident Not Qualified":
+        "I apologize, but the incident does not meet our firm's criteria. If that changes in the future, we'll contact you. "
+        "In the meantime, please consider reaching out to other law firms.",
+    "How much is the settlement":
+        "I don't want to misinform you, as it really depends on the specifics of your case and the trauma involved. "
+        "Factors like the incident and extent of damage are crucial. For example, in December 2022, the California Public Utilities "
+        "Commission approved a $9 million settlement with Uber for not properly documenting and reporting sexual assault incidents.",
+    "How much will the law firm charge me":
+        "The standard fee is 40%, typical for law firms due to the risks involved. Our experienced lawyers can help you secure a larger "
+        "settlement faster, and we’ll hire an expert witness to connect your health issues to your rideshare sexual assault case. "
+        "You won’t pay anything upfront—we’ll handle your medical records and evidence gathering. "
+        "Choosing a firm with seasoned professionals is crucial for achieving the best settlement. If we prove a link but don’t secure a settlement "
+        "(which is rare), you won't owe anything.",
+    "PC Disagreement Over 40% Fee":
+        "I respect your decision, but the standard fee is 40%. Other firms may not charge less due to the uncertainty of securing a settlement. "
+        "With our superlawyers and an expert witness, we’ll link your health issues to the rideshare sexual assault incident. You’re paying for convenience—"
+        "there’s no need to gather records or go to court. If you proceed today, we can help with no upfront payment.",
+    "Asking ID and other evidences":
+        "To qualify for a settlement, it's crucial to retrieve your medical records. This ensures the funds go to the right person, protecting your benefits "
+        "and strengthening your case. Please provide a copy of your government-issued ID and a selfie for verification. Additionally, any records, photos, "
+        "or medication bottles as proof would be valuable. Your evidence is essential for us to help you effectively.",
+    "Asking SSN":
+        "The hospital must ensure they send the correct information. For legal purposes and proper documentation, we need your full name, address, date of birth, "
+        "and Social Security number. I understand your concerns about sharing your Social Security number, but it’s essential for protecting your identity and ensuring "
+        "that any settlement goes to the right person. This helps prevent relatives from falsely claiming the settlement and avoids potential financial issues. "
+        "Your cooperation is vital for a smooth legal process.",
+    "Asking last 4 digits - SSN":
+        "Can I get the last four digits of your Social Security number for the HIPAA Release Form, which confirms your consent to release your medical records, "
+        "and rest assured, they will remain private and confidential since law firms don’t file them and can be sanctioned if they do.",
+    "I did not submit my information":
+        "You probably filled out a survey or form online. If you or a loved one were involved in a rideshare sexual assault incident, we can connect you with top attorneys "
+        "who are Super Lawyers. I'm here to help you pursue a settlement, and your case is important to us.",
+    "Where are you from":
+        "I'm calling from Dallas, Texas, representing the Advocate Rights Center, an intake center for ______ Law Firm. "
+        "We assist clients in pursuing settlements related to rideshare sexual assault incidents.",
+    "Scam Suspicions":
+        "I understand your concern, but I won’t need your financial information or bank details. I only require your basic information to pursue your claim. "
+        "Providing this information allows us to obtain essential records, like medical records and proof of injury, which are crucial for filing your claim and securing a settlement. "
+        "Your cooperation is vital for building a strong case.",
+    "Multi-District Litigation (MDL) vs. Class Action":
+        "In multi-district litigation (MDL), settlements are based on each individual impact of their injuries from a rideshare sexual assault, ensuring fair compensation. "
+        "On the other hand, class action lawsuits split settlements equally among all members, regardless of how much each person was affected.",
+    "Class Action Clarification":
+        "This isn't like a Class Action. Because each injury is different, the compensation is customized to match exactly what happened to you.",
+    "I Need a Local Law Firm":
+        "Claims about rideshare sexual assault incidents are now consolidated in the U.S. District Court for the Northern District of California under Judge Charles Breyer (MDL No. 3084). "
+        "You don’t need an attorney licensed in your state anymore, making the process faster and outcomes more predictable. You can choose the law firm you prefer. "
+        "We work with ______ Law, which has won hundreds of millions in liability settlements.",
+    "What kind of claim is this?":
+        "These are personal injury claims against the rideshare company for harm caused by incidents involving sexual assault. "
+        "Victims have suffered injuries resulting in pain, suffering, and long-term trauma. The rideshare company is primarily responsible due to negligence in failing to properly screen drivers.",
+    "Are settlements taxable?":
+        "I'm not a tax expert and can't provide tax advice, but generally, settlements for personal injury or emotional/psychological damage (pain and suffering) are non-taxable. "
+        "However, I can't confirm this definitively.",
+    "What happens if I die?":
+        "After you file the claim, the law firm will update it to name a new plaintiff, usually the estate administrator, since you can't represent yourself if you pass away. "
+        "It's a good idea to create a will to ensure your assets go to your heirs as you want; otherwise, state laws will apply. "
+        "A case manager will reach out after you sign the forms to verify your information and guide you through the process.",
+    "Reasons for Using Plaid":
+        "1) Verification: It helps confirm your identity and prevents impersonation, saving the law firm time and money on false claims.\n"
+        "2) Medical Records: Your government ID allows us to obtain medical records while following privacy laws (HIPAA).\n"
+        "3) Settlement Accuracy: We ensure settlement funds go to the right person and don’t ask for banking details until the law firm confirms the settlement.\n\n"
+        "These steps are important for protecting your case and ensuring everything runs smoothly.",
+    "Using Plaid: Quick Directions (verbal)":
+        "To use Plaid, click the link, and you'll be taken to their platform. Here’s what to do:\n\n"
+        "1. Enter the last four digits of your SSN.\n"
+        "2. Allow access to your camera to take photos of the front and back of your driver’s license.\n"
+        "3. Then, take a selfie by holding your phone up for about 10 seconds.\n"
+        "This process matches your selfie with your driver’s license to confirm your identity.",
+    "Has Attorney":
+        "To avoid double representation issues, please ensure you don't have another attorney for your rideshare sexual assault case. "
+        "If you do, we cannot assist you to protect your interests.",
+    "Unanswered Client Callback Script":
+        "The law firm has been trying to reach you to verify a few things. They might check in occasionally about your condition, "
+        "especially since complications can affect your settlement.\n\n"
+        "You can call them at (Number of Lawfirm). They might give you another number for direct contact with an attorney or paralegal, "
+        "but this number will connect you to their office.\n\n"
+        "Optional: If you can, let them know you have their number and will answer future calls. This builds trust and shows you’re engaged, "
+        "which is important since they will invest time and resources in your case.",
+    "RSA District Court?":
+        "Claims about rideshare sexual assault incidents are now consolidated in the U.S. District Court for the Northern District of California under Judge Charles Breyer (MDL No. 3084).",
+    "Rideshare Companies in Litigation":
+        "Uber, Lyft, Via, Ola, Grab, Didi Chuxing, Bolt, Gett",
+    "Settlement Claims in Rideshare Assault":
+        "• Medical Expenses: Treatment and rehabilitation costs.\n"
+        "• Emotional Distress: Compensation for psychological trauma.\n"
+        "• Lost Wages: Income loss due to inability to work.\n"
+        "• Punitive Damages: Penalties to deter misconduct.\n"
+        "• Legal Fees: Reimbursement for attorney costs.\n"
+        "• Pain and Suffering: Compensation for physical and emotional pain.\n"
+        "• Future Medical Costs: Estimated ongoing treatment expenses.\n"
+        "• Loss of Enjoyment: Diminished quality of life.\n"
+        "• Property Damage: Reimbursement for damaged personal items.\n"
+        "• Loss of Consortium: Claims for loss of companionship.",
+    "Medical Office Three-Way Call":
+        "We can do a three-way call with the medical office to confirm your injury. We'll ask them when you were last seen for your condition. "
+        "With your permission, we can record the call and send it to the law firm. They just need proof that you’re a genuine claimant. "
+        "This isn’t for evidence—your medical records will handle that—but to show that investing time and money in your case is worthwhile. "
+        "They want to avoid claims that look like a lottery ticket. They aren’t asking for guarantees.",
+    "Wagstaff Law Information":
+        "Wagstaff Lawfirm\n940 Lincoln St, Denver, CO 80203\n303-376-6360\nhttps://www.wagstafflawfirm.com/\n\n"
+        "About Us\nWagstaff Law Firm: National Mass Tort Attorneys with 40 years of experience. We offer a personal approach to help victims recover and hold negligent "
+        "parties accountable for maximum compensation. Contact us at (972) 573-6040 or visit https://www.wagstafflawfirm.com/",
+    "Instructions for Resending Rideshare Receipts":
+        "Uber: Go to the Activity tab, select the ride, click the Receipt icon, and then choose resend email.\n\n"
+        "Lyft: Open Lyft app > Ride history > Tap the ride > Scroll down > Tap 'Resend receipt' > Enter your email to send",
+    # Link-only references below:
+    "How to Report an Assault to Uber/Lyft (link)":
+        "https://docs.google.com/document/d/1Oiljbf3oHqtoKDv2jArsXMIVw5hhuNrRiZ1MDl0aoqo/edit?usp=sharing",
+    "Script for Irate Callers (link)":
+        "https://docs.google.com/document/d/1wlQurtqG_0tVIUhBfHXL2R8fF58i8s64/edit?usp=sharing&ouid=116486877893425072265&rtpof=true&sd=true",
+    "Responding to Law Firm (link)":
+        "https://docs.google.com/document/d/1BNJoF14vqEkH2WojUC_H7AsWUmu-ZC1NVmvO0J_GN9Q/edit?usp=sharing",
+    "Using Plaid: Quick Directions (doc link)":
+        "https://docs.google.com/document/d/1P_jodMzz-2vc0vQsDbgCimCBDGDHyuNaFqyE7KmbO5Y/edit?usp=sharing",
+    "ID and Proof Retrieval Script (link)":
+        "https://docs.google.com/document/d/1DTcBIWg4NJfEgETe4bwagbz4refPSyoP/edit?usp=sharing&ouid=116486877893425072265&rtpof=true&sd=true",
+    "Mailer – Commitment Script (link)":
+        "https://docs.google.com/document/d/1VMxf5JcVIFN2ABXmkLHKdkvYJ6tfmSmIp0jlMrh7glE/edit?usp=sharing",
+    "Esign Guide Text (link)":
+        "https://docs.google.com/document/d/1e6sGJB8wRPwa2_sBEvLbDl4wUM4TsS8f46agwNWvIRE/edit?usp=sharing",
+    "Esign Guide Email (link)":
+        "https://docs.google.com/document/d/1zVTewqs7jtAB_yL0cdz8vz_8o-IfgoYVhj4KPNNG9M8/edit?usp=sharing",
+    "Identity Verification Links (site)":
+        "https://besthistorysites.net/",
+    "PLAID Link":
+        "https://advocaterightscenter.com/plaid_verification/",
+    "How to Send Plaid Link to Clients (link)":
+        "https://docs.google.com/document/d/1huakazfAU_-P3PORmcP5DLrdIn_pHRzGNjjdjnOWwVw/edit?usp=sharing",
+    "How to Guide Clients in Plaid Text (link)":
+        "https://docs.google.com/document/d/19Uj2gXI1WKOlnaVprvryvYipOgMAAum2gR4uDsMJ7B8/edit?usp=sharing",
+    "SOP for Plaid (link)":
+        "https://docs.google.com/document/d/1Rc_C3mqQ21CdpfbHAXzqDNernl32Jr-2/edit",
+    "Call Transfers with C9 and Law Ruler (link)":
+        "https://docs.google.com/document/d/1powoAbPlhqVV3q54ZlgFIZml70Iudrzh/edit?usp=sharing&ouid=116486877893425072265&rtpof=true&sd=true",
+    "RSA - Objection Script (link)":
+        "https://docs.google.com/document/d/14fYJyeWYuuIbQmwrzGMCkuvnVoIwqrKy/edit?usp=sharing&ouid=116486877893425072265&rtpof=true&sd=true",
+    "Rideshare Waggy (SMS templates)":
+        "Lorenia: 213-347-9246\n"
+        "• We received your signed docs for your Rideshare Assault Claim. A paralegal from Wagstaff will call from 213-347-9246 within 5-10 business days.\n"
+        "• Hi Monica, the paralegal for your Rideshare Assault Claim is trying to reach you. Call her at 213-347-9246 to reconfirm your details."
+}
+
+# =========================
 # HELPERS
 # =========================
 def script_block(text: str):
-    if not text:
-        return
+    if not text: return
     st.markdown(f"<div class='script'>{text}</div>", unsafe_allow_html=True)
 
 def badge(ok: bool, label: str):
     css = "badge-ok" if ok else "badge-no"
     st.markdown(f"<div class='{css}'>{label}</div>", unsafe_allow_html=True)
 
-def fmt_date(dt):
-    return dt.strftime("%Y-%m-%d") if dt else "—"
-
-def fmt_dt(dt):
-    return dt.strftime("%Y-%m-%d %H:%M") if dt else "—"
+def fmt_date(dt): return dt.strftime("%Y-%m-%d") if dt else "—"
+def fmt_dt(dt): return dt.strftime("%Y-%m-%d %H:%M") if dt else "—"
 
 def join_list(values, dash_if_empty=True):
     if not values:
@@ -209,7 +351,7 @@ def render():
             "If anything feels hard to say, we can take a moment and continue when you’re ready.”"
         )
 
-    # Acts (moved under Q1)
+    # Acts (under Q1)
     st.subheader("Acts (check all that apply)")
     rape = st.checkbox("Rape/Penetration", key="act_rape")
     forced_oral = st.checkbox("Forced Oral/Forced Touching", key="act_forced_oral")
@@ -258,7 +400,6 @@ def render():
         f"These are some of the strongest pieces of proof we can attach to your file."
         f"</div>", unsafe_allow_html=True
     )
-    # Evidence capture
     receipt_evidence = st.multiselect(
         "What can you provide as receipt evidence?",
         ["PDF", "Email", "Screenshot of Receipt", "In-App Receipt (screenshot)", "Other"],
@@ -284,7 +425,7 @@ def render():
     if uploaded_names:
         script_block("“Thanks for those uploads — I see them here and will attach them to your file.”")
 
-    # New SMS flow (replaces “How would you like to send documentation…”)
+    # SMS flow
     st.markdown("**SMS for Documentation**")
     script_block(
         "“I’m going to send you an SMS containing my email address. "
@@ -312,7 +453,7 @@ def render():
     st.markdown("---")
 
     # =========================
-    # 3) Second-Level Qualification (Reporting & Location/Time)
+    # 3) Second-Level Qualification (Reporting & Timing)
     # =========================
     st.markdown("### 3) Second-Level Qualification (Reporting & Timing)")
 
@@ -383,6 +524,13 @@ def render():
         st.markdown("**Rideshare Company (reported)**")
         rep_rs_company = st.selectbox("Which company did you report to?", ["Uber", "Lyft"], key="rep_rs_company")
         report_dates["Rideshare company"] = st.date_input("Date reported to Rideshare company", value=TODAY.date(), key="q5a_dt_rs")
+
+    # If NOT reported to rideshare company: show auto-filled suggestion based on Q2
+    if "Rideshare Company" not in reported_to:
+        target = company if company in ("Uber","Lyft") else "the rideshare company"
+        script_block(
+            f"Are you open if the Atty would request for you to report to {target} to strengthen your case?"
+        )
 
     # Q6 — Scope
     st.markdown("**Q6. Did the incident happen inside the car, just outside, or did it continue after you exited?**")
@@ -466,7 +614,6 @@ def render():
     rider_not_driver = st.toggle("Caller was the rider (not the driver)", value=True, key="elig_rider_not_driver")
     has_atty = st.toggle("Already has an attorney", value=False, key="elig_atty")
 
-    # Polite felony question (verbatim)
     script_block("This will not affect your case, So the law firm can be prepared for any character issues, do you have any felonies or criminal history?")
     felony_answer = st.radio("Please select one", ["No", "Yes"], horizontal=True, key="q10_felony")
     felony = (felony_answer == "Yes")
@@ -524,7 +671,7 @@ def render():
     earliest_is_family = (earliest_channels == ["Family/Friends"]) or (set(earliest_channels) == {"Family/Friends"})
 
     # ===== Eligibility =====
-    # Wagstaff: report to allowed channel or audio/video evidence; family-only must be <=24h; no felony; rider within scope; Tier 1/2; SOL ok; Uber/Lyft both accepted
+    # Wagstaff
     has_allowed_report = any(ch in report_dates for ch in ["Rideshare company","Police","Therapist","Physician"]) or ("Family/Friends" in report_dates)
     within_24h_family_ok = True
     if set(report_dates.keys()) == {"Family/Friends"}:
@@ -533,13 +680,12 @@ def render():
         else:
             delta_hours = (family_report_dt - incident_dt).total_seconds() / 3600.0
             within_24h_family_ok = (0 <= delta_hours <= 24.0)
-
     wag_report_ok = (has_allowed_report and (within_24h_family_ok or not set(report_dates.keys()) == {"Family/Friends"})) or any_av_uploaded
     wag_common_ok = (not has_atty) and inside_near and base_tier_ok and sol_time_ok and (company in ("Uber","Lyft"))
     wag_no_felony = (not felony)
     wag_ok = wag_common_ok and wag_report_ok and wag_no_felony
 
-    # Triten specifics
+    # Triten
     triten_receipt_ok = ("Email" in receipt_evidence) or ("PDF" in receipt_evidence) or any_pdf_uploaded
     triten_id_ok = bool(gov_id)
     triten_gender_ok = bool(female_rider)
@@ -694,7 +840,7 @@ def render():
     add_line(3,  f"Platform: {company}")
     add_line(4,  f"Receipt Evidence: {join_list(receipt_evidence)} | Files: {', '.join(uploaded_names) if uploaded_names else '—'}")
     add_line(5,  f"Incident Date/Time: {(fmt_date(incident_date) if incident_date else 'UNKNOWN')} {incident_time.strftime('%H:%M') if incident_time else ''}")
-    add_line(6,  f"Reported to: {join_list(reported_to)} | Dates: {', '.join([f'{k}: {fmt_date(v)}' for k,v in report_dates.items()]) if report_dates else '—'}")
+    add_line(6,  f"Reported to: {join_list(list(reported_to))} | Dates: {', '.join([f'{k}: {fmt_date(v)}' for k,v in report_dates.items()]) if report_dates else '—'}")
     if "Friend or Family Member" in reported_to:
         add_line(6.1, f"Family/Friend Contact: {(fam_first or '—')} {(fam_last or '')} | Phone: {fam_phone or '—'}")
     if "Physician" in reported_to:
@@ -793,15 +939,29 @@ def render():
     )
 
     # =========================
-    # Firm-Specific CLIENT CONTACT DETAILS (Bottom)
+    # Objection Scripts / Legend / References
+    # =========================
+    st.markdown("---")
+    st.header("Objection Script / Legend / References")
+    obj_key = st.selectbox(
+        "Select a script or reference",
+        sorted(list(OBJECTION_SCRIPTS.keys())),
+        index=0,
+        key="obj_script_select"
+    )
+    obj_text = OBJECTION_SCRIPTS.get(obj_key, "")
+    if obj_text.startswith("http"):
+        st.markdown(f"[Open reference link]({obj_text})")
+    else:
+        script_block(obj_text)
+
+    # =========================
+    # Firm-Specific Client Contact Details (Bottom)
     # =========================
     st.markdown("---")
     st.header("Firm-Specific Client Contact Details")
 
-    # common prefill split
     pre_first, pre_mid, pre_last = split_legal_name(caller_legal_name)
-
-    # COMMON defaults for address/phones/emails
     pre_email = caller_email or ""
     pre_home = ""
     pre_cell = st.session_state.get("caller_phone", "") or ""
@@ -884,7 +1044,6 @@ def render():
     # =========================
     st.subheader("Export")
 
-    # Prepare export payload
     earliest_channels = []
     if earliest_report_date:
         for k, v in report_dates.items():
