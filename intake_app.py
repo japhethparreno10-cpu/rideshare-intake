@@ -1,3 +1,7 @@
+# intake_app.py
+# Rideshare Intake Qualifier — vertical flow + inline education inserts + SOL + firm routing
+# Education #1 after Q1; #2 after Q3; #3 after Q6; #4 after Q8 (if shown)
+
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta, time, date
