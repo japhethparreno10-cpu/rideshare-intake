@@ -346,32 +346,14 @@ def render():
     st.markdown("### 1) Story & First-Level Qualification")
 
     # Q1 — Narrative
-    # Q1 — Narrative
-    # Q1 — Narrative
     st.markdown("**Q1. In your own words, please feel free to describe what happened during the ride.**")
     narr = st.text_area("Caller narrative", key="q1_narr")
-
-    # Empathy/acknowledgement right after the caller speaks
-    pc_name_for_empathy = caller_full_name or caller_legal_name or ""
     if narr.strip():
-    script_block(
-        f"""“{(pc_name_for_empathy + ', ') if pc_name_for_empathy else ''}thank you for trusting me with that.
-    I’m so sorry this happened to you. What you shared matters, and you did nothing to deserve it.
-
-    You’re in control of this conversation. If you need to pause, take a break, or skip any question, just let me know—we’ll go entirely at your pace.
-
-    If anything feels overwhelming, we can take a breath together and return to it when you’re ready.”"""
-    )
-    script_block(
-        "“To make sure I understood correctly, I’ll briefly reflect back what I heard in neutral, non-graphic terms. "
-        "Please correct me if I miss anything—or tell me if you’d prefer not to revisit any part.”"
-    )
-
-    script_block(
-        "“To make sure I understood correctly, I’ll briefly reflect back what I heard in neutral, non-graphic terms. "
-        "Please correct me if I miss anything—or tell me if you’d prefer not to revisit any part.”"
-    )
-
+        script_block(
+            "“Thank you for trusting me with that. What you’ve shared is painful and important. "
+            "You’re in control of this conversation, and we’ll move at your pace. "
+            "If anything feels hard to say, we can take a moment and continue when you’re ready.”"
+        )
 
     # Acts (under Q1)
     st.subheader("Acts (check all that apply)")
@@ -1452,6 +1434,3 @@ def render():
         )
 
 render()
-
-
-
