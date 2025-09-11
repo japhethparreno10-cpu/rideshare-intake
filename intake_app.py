@@ -122,12 +122,10 @@ OBJECTION_SCRIPTS = {
         "or medication bottles as proof would be valuable. Your evidence is essential for us to help you effectively.",
     "Asking SSN":
         "The hospital must ensure they send the correct information. For legal purposes and proper documentation, we need your full name, address, date of birth, "
-        "and Social Security number. I understand your concerns about sharing your Social Security number, but it’s essential for protecting your identity and ensuring "
-        "that any settlement goes to the right person. This helps prevent relatives from falsely claiming the settlement and avoids potential financial issues. "
-        "Your cooperation is vital for a smooth legal process.",
+        "and Social Security number.",
     "Asking last 4 digits - SSN":
-        "Can I get the last four digits of your Social Security number for the HIPAA Release Form, which confirms your consent to release your medical records, "
-        "and rest assured, they will remain private and confidential since law firms don’t file them and can be sanctioned if they do.",
+        "I understand your concerns about sharing your Social Security number, but it’s essential for protecting your identity and ensuring that any settlement goes to the right person. "
+        "This helps prevent relatives from falsely claiming the settlement and avoids potential financial issues. Your cooperation is vital for a smooth legal process.",
     "I did not submit my information":
         "You probably filled out a survey or form online. If you or a loved one were involved in a rideshare sexual assault incident, we can connect you with top attorneys "
         "who are Super Lawyers. I'm here to help you pursue a settlement, and your case is important to us.",
@@ -290,17 +288,6 @@ def sol_rule_for(state, category):
     years = TORT_SOL.get(state)
     return years, f"{state}: General tort SOL = {years} year(s).", False
 
-def categorical_brief(flags):
-    buckets = []
-    if flags.get("Rape/Penetration"): buckets.append("rape/penetration")
-    if flags.get("Forced Oral/Forced Touching"): buckets.append("forced oral/forced touching")
-    if flags.get("Touching/Kissing w/o Consent"): buckets.append("unwanted touching/kissing")
-    if flags.get("Indecent Exposure"): buckets.append("indecent exposure")
-    if flags.get("Masturbation Observed"): buckets.append("masturbation observed")
-    if flags.get("Kidnapping Off-Route w/ Threats"): buckets.append("kidnapping w/ threats")
-    if flags.get("False Imprisonment w/ Threats"): buckets.append("false imprisonment w/ threats")
-    return ", ".join(buckets) if buckets else "—"
-
 def split_legal_name(full_legal: str):
     first = middle = last = ""
     if not full_legal:
@@ -339,7 +326,7 @@ def render():
     caller_legal_name = st.text_input("Full legal name (exact on ID)", key="caller_legal_name")
     consent_recording = st.toggle("Permission to record (private & confidential)", value=False, key="consent_recording")
 
-    # NEW: prior firm question (immediately under recording consent)
+    # Prior firm question
     st.markdown("**As far as you can remember, have you signed up with any Law Firm to represent you on this case but then got disqualified for any reason?**")
     prior_firm_radio = st.radio("We still might be able to help but need to know.", ["No", "Yes"], horizontal=True, key="prior_firm_any")
     prior_firm_any = (prior_firm_radio == "Yes")
@@ -375,6 +362,8 @@ def render():
     touching = st.checkbox("Touching/Kissing w/o Consent", key="act_touch")
     exposure = st.checkbox("Indecent Exposure", key="act_exposure")
     masturb = st.checkbox("Masturbation Observed", key="act_masturb")
+    verbal_only = st.checkbox("Verbal Abuse only (No Sexual Acts)", key="act_verbal_only")
+    attempt_only = st.checkbox("Attempt/minor contact only", key="act_attempt_only")
     kidnap = st.checkbox("Kidnapping Off-Route w/ Threats (Tier-3 aggravator; must have Tier 1 or 2)", key="act_kidnap")
     imprison = st.checkbox("False Imprisonment w/ Threats (Tier-3 aggravator; must have Tier 1 or 2)", key="act_imprison")
 
@@ -396,14 +385,12 @@ def render():
     if company:
         script_block("“Thanks for confirming the platform. That helps us pull the right records and policies.”")
 
-    # Education #1 (Part A) — moved here (right above Pickup/Drop-off)
+    # Education #1 (Part A) — placed above Pickup/Drop-off
     script_block(
-        """HOW THIS HAPPENED →  EDUCATE CLIENT / SAFETY ZONE
-Well, let me tell you what people have uncovered about Rideshares and why people like you are coming forward. And again, I appreciate you trusting us with this.
-
-Uber & Lyft have been exposed for improperly screening drivers, failing to remove dangerous drivers, and misrepresenting its safety practices.
-
-For example, the New York Times uncovered sealed court documents showing that over 400,000 incidents of sexual assault and misconduct were reported to Uber between 2017 and 2022 . . . which is about 1 incident every 8 minutes."""
+        "HOW THIS HAPPENED →  EDUCATE CLIENT / SAFETY ZONE\n"
+        "Well, let me tell you what people have uncovered about Rideshares and why people like you are coming forward. And again, I appreciate you trusting us with this.\n\n"
+        "Uber & Lyft have been exposed for improperly screening drivers, failing to remove dangerous drivers, and misrepresenting its safety practices.\n\n"
+        "For example, the New York Times uncovered sealed court documents showing that over 400,000 incidents of sexual assault and misconduct were reported to Uber between 2017 and 2022 . . . which is about 1 incident every 8 minutes."
     )
 
     # Pickup / Drop-off (extension to Q2)
@@ -417,7 +404,7 @@ For example, the New York Times uncovered sealed court documents showing that ov
             "If you remember nearby landmarks or cross-streets, we can add those too. You’re doing great.”"
         )
 
-    # Q3 — Confident receipt request (uses PC name)
+    # Q3 — Receipts / Proof
     st.markdown("**Q3. Receipts / Proof**")
     pc_name = caller_full_name or caller_legal_name or "there"
     st.markdown(
@@ -438,7 +425,7 @@ For example, the New York Times uncovered sealed court documents showing that ov
     if receipt_evidence:
         script_block("“Perfect — those receipts and screenshots directly link the ride to your account and timestamp the trip.”")
 
-    # Uploads (includes audio/video; counts for Wagstaff evidence)
+    # Uploads
     proof_uploads = st.file_uploader(
         "Upload now (ride receipt, therapy/medical note, police confirmation, audio/video) — images, PDFs, audio, or video",
         type=["pdf","png","jpg","jpeg","heic","mp4","mov","m4a","mp3","wav"],
@@ -469,11 +456,11 @@ For example, the New York Times uncovered sealed court documents showing that ov
             script_block("“Great — I’ll use this as your best contact number going forward.”")
     st.button("Mark SMS sent (placeholder)", key="btn_sms_sent")
 
-    # Education #1 (Part B) — later in Level 1
+    # Education #1 (Part B)
     script_block(
-        """[[ Now when you consider that Uber originally only reported about 12,500 incidents during that same period, you can argue the company has been seriously misleading the level of safety it offers passengers. ]]
-
-Now, we know many people don’t report these incidents. So, coming forward helps you and others obtain justice and compensation. [[ And, it truly does help force Uber & Lyft to pay for their negligence, and provide real safety measures so these incidents stop happening.]]"""
+        "[[ Now when you consider that Uber originally only reported about 12,500 incidents during that same period, you can argue the company has been seriously misleading the level of safety it offers passengers. ]]\n\n"
+        "Now, we know many people don’t report these incidents. So, coming forward helps you and others obtain justice and compensation. "
+        "[[ And, it truly does help force Uber & Lyft to pay for their negligence, and provide real safety measures so these incidents stop happening.]]"
     )
 
     st.markdown("<div class='qual lvl-orange'>Qualification Level 2</div>", unsafe_allow_html=True)
@@ -551,7 +538,7 @@ Now, we know many people don’t report these incidents. So, coming forward help
         rep_rs_company = st.selectbox("Which company did you report to?", ["Uber", "Lyft"], key="rep_rs_company")
         report_dates["Rideshare company"] = st.date_input("Date reported to Rideshare company", value=TODAY.date(), key="q5a_dt_rs")
 
-    # If NOT reported to rideshare company: show auto-filled suggestion based on Q2
+    # If NOT reported to rideshare company: show suggestion
     if "Rideshare Company" not in reported_to:
         target = company if company in ("Uber","Lyft") else "the rideshare company"
         script_block(f"Are you open if the Atty would request for you to report to {target} to strengthen your case?")
@@ -648,8 +635,18 @@ Now, we know many people don’t report these incidents. So, coming forward help
     felony_answer = st.radio("Please select one", ["No", "Yes"], horizontal=True, key="q10_felony")
     felony = (felony_answer == "Yes")
 
-    # Weapon questions
-    st.markdown("**Were you carrying a weapon at the time of the assault?**")
+    # ===== Weapons / Force =====
+    st.markdown("**Did the driver threaten to us or actually use any weapons? Or use means of force during the sexual assault, such as gun, knife, or choking?**")
+    driver_used_weapon = st.radio("Select one", ["No", "Yes"], horizontal=True, key="driver_used_weapon")
+    driver_force_detail = ""
+    if driver_used_weapon == "Yes":
+        driver_force_detail = st.text_area("If yes, please elaborate.", key="driver_force_detail")
+        script_block("Okay, [repeat type of weapon or means of force]. That’s very serious and the details help paint a full picture of the situation. I’m so sorry that happened.")
+    else:
+        script_block("Okay, although there was no weapon, this is still a very serious situation and does not change the magnitude of the incident.")
+
+    # Wagstaff-only victim weapon question
+    st.markdown("**Were you carrying a weapon at the time of the assault? (Wagstaff eligibility only)**")
     client_weapon_ans = st.radio("Select one", ["No", "Yes"], horizontal=True, key="client_weapon")
     client_weapon = (client_weapon_ans == "Yes")
 
@@ -662,25 +659,18 @@ Now, we know many people don’t report these incidents. So, coming forward help
     lethal_flags = {"Firearm": False, "Knife": False, "Other lethal": False}
     nonlethal_selected = []
     if client_weapon:
-        nonlethal_selected = st.multiselect("If yes, select any **non-lethal defensive items** you carried (these generally do not disqualify):",
+        st.caption("(Personal defense tools like pepper spray/mace may not be a weapon.)")
+        nonlethal_selected = st.multiselect("If yes, select any **non-lethal defensive items** (these generally do not disqualify for Wagstaff):",
                                             non_lethal_options, key="nonlethal_items")
         lethal_flags["Firearm"] = st.checkbox("Firearm", key="client_firearm")
         lethal_flags["Knife"] = st.checkbox("Knife (lethal intent)", key="client_knife")
         lethal_flags["Other lethal"] = st.checkbox("Other lethal weapon", key="client_other_lethal")
-        script_block("“Thank you for being candid. Non-lethal personal defense items are understood and generally not an issue.”")
+        script_block("Okay, thank you for that. And I appreciate your honesty. But based upon the current guidelines, the law firm may not be accepting cases where the victim had a weapon.")
     else:
-        script_block("“Okay, you did not have a weapon with you. That’s all we need on that part — thank you for confirming.”")
+        script_block("Okay, you did not have a weapon with you. That’s all we need on that part — thank you for confirming.")
 
-    st.markdown("**Did the driver threaten to use or actually use any weapons, or use force (gun, knife, choking)?**")
-    driver_force_detail = st.text_area("If yes, please elaborate (optional)", key="driver_force_detail")
-    if driver_force_detail.strip():
-        script_block("“I’m sorry you experienced that. Details like these help paint a full picture of the situation.”")
-    else:
-        script_block("“Even without a weapon being involved, what you described is very serious and does not lessen the magnitude of the incident.”")
-
-    # Decline toggles for Triten “verbal/attempt only”
-    verbal_only = st.checkbox("Verbal abuse only (no sexual acts)", key="elig_verbal_only")
-    attempt_only = st.checkbox("Attempt/minor contact only", key="elig_attempt_only")
+    # Declines specific to Triten from Acts:
+    # (already captured via 'verbal_only' and 'attempt_only' under Acts)
 
     # =========================
     # Settlement Process + Education #4
@@ -703,11 +693,18 @@ Now, we know many people don’t report these incidents. So, coming forward help
     st.markdown("### Identity for Records")
     pc_name_local = caller_full_name or caller_legal_name or "there"
     st.markdown(f"**{pc_name_local}, I need your Social Security Number.**")
+
+    # SSN education split into TWO separate blocks (not together)
     script_block(
-        "The hospital must ensure they send the correct information. For legal purposes and proper documentation, we need your full name, address, date of birth, and Social Security number. "
-        "I understand your concerns about sharing your Social Security number, but it’s essential for protecting your identity and ensuring that any settlement goes to the right person. "
-        "This helps prevent relatives from falsely claiming the settlement and avoids potential financial issues. Your cooperation is vital for a smooth legal process."
+        "The hospital must ensure they send the correct information. For legal purposes and proper documentation, "
+        "we need your full name, address, date of birth, and Social Security number."
     )
+    script_block(
+        "I understand your concerns about sharing your Social Security number, but it’s essential for protecting your identity "
+        "and ensuring that any settlement goes to the right person. This helps prevent relatives from falsely claiming the settlement "
+        "and avoids potential financial issues. Your cooperation is vital for a smooth legal process."
+    )
+
     full_ssn = st.text_input("Social Security Number (###-##-####)", key="full_ssn")
     st.caption("If you prefer, you can share just the **last 4 digits**; those are often enough for HIPAA releases.")
     ssn_last4 = st.text_input("SSN last 4 (optional)", max_chars=4, key="ssn_last4")
@@ -718,7 +715,7 @@ Now, we know many people don’t report these incidents. So, coming forward help
     incident_time_obj = incident_time or time(0, 0)
     incident_dt = datetime.combine(used_date, incident_time_obj)
 
-    category = sa_category(act_flags)
+    category = "penetration" if (rape or forced_oral) else ("other" if (touching or exposure or masturb) else None)
     sol_state = STATE_ALIAS.get(state, state)
     sol_years, sol_rule_text, used_sa = sol_rule_for(sol_state, category)
 
@@ -755,15 +752,14 @@ Now, we know many people don’t report these incidents. So, coming forward help
         else:
             delta_hours = (family_report_dt - incident_dt).total_seconds() / 3600.0
             within_24h_family_ok = (0 <= delta_hours <= 24.0)
-
     wag_report_ok = (has_allowed_report and (within_24h_family_ok or not set(report_dates.keys()) == {"Family/Friends"})) or any_av_uploaded
     wag_common_ok = (not has_atty) and inside_near and base_tier_ok and sol_time_ok and (company in ("Uber","Lyft"))
     wag_no_felony = (not felony)
     client_weapon_lethal = client_weapon and (lethal_flags["Firearm"] or lethal_flags["Knife"] or lethal_flags["Other lethal"])
-    wag_weapon_ok = not client_weapon_lethal  # only Wagstaff declines for lethal weapon carried by victim
+    wag_weapon_ok = not client_weapon_lethal  # ONLY Wagstaff declines if victim carried lethal weapon
     wag_ok = wag_common_ok and wag_report_ok and wag_no_felony and wag_weapon_ok
 
-    # Triten — requires Email/PDF receipt, ID, female rider, not driver, report (family within 14d), no atty, tier, scope, SOL OK, Uber/Lyft, decline verbal/attempt only
+    # Triten — requires Email/PDF receipt, ID, female rider, not driver, report (family within 14d), no atty, tier, scope, SOL OK, Uber/Lyft, declines verbal/attempt-only
     triten_receipt_ok = ("Email" in receipt_evidence) or ("PDF" in receipt_evidence) or any_pdf_uploaded
     triten_id_ok = bool(gov_id)
     triten_gender_ok = bool(female_rider)
@@ -865,12 +861,8 @@ Now, we know many people don’t report these incidents. So, coming forward help
     if has_atty: wag_reasons.append("Already represented by an attorney.")
     if felony: wag_reasons.append("Wagstaff currently does not accept felony history.")
     if client_weapon_lethal: wag_reasons.append("Wagstaff declines cases where the victim carried a lethal weapon.")
-    if wag_ok and not wag_reasons:
-        wag_reasons_txt = "—"
-    else:
-        wag_reasons_txt = "• " + "\n• ".join(wag_reasons) if wag_reasons else "—"
     st.markdown("**Reasons Not Eligible — Wagstaff**")
-    st.markdown(f"<div class='kv'>{wag_reasons_txt}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='kv'>{'• ' + '\\n• '.join(wag_reasons) if wag_reasons else '—'}</div>", unsafe_allow_html=True)
 
     # Triten Diagnostic + Reasons Not Eligible
     st.markdown("#### Triten")
@@ -902,16 +894,12 @@ Now, we know many people don’t report these incidents. So, coming forward help
     if triten_report_any and earliest_is_family and not triten_family_14_ok:
         triten_reasons.append("Family/Friend report must be within 14 days.")
     if has_atty: triten_reasons.append("Cannot proceed if already represented by an attorney.")
-    if not base_tier_ok: triten_reasons.append("Tier 1 or Tier 2 conduct must be present (declines verbal-only or attempt-only).")
+    if not base_tier_ok or verbal_only or attempt_only: triten_reasons.append("Tier 1 or Tier 2 conduct must be present (declines verbal-only or attempt-only).")
     if not inside_near: triten_reasons.append("Incident must be inside/just outside/in furtherance from the car.")
     if not sol_time_ok: triten_reasons.append("Statute of limitations appears expired.")
     if company not in ("Uber","Lyft"): triten_reasons.append("Company must be Uber or Lyft.")
-    if triten_ok and not triten_reasons:
-        triten_reasons_txt = "—"
-    else:
-        triten_reasons_txt = "• " + "\n• ".join(triten_reasons) if triten_reasons else "—"
     st.markdown("**Reasons Not Eligible — Triten**")
-    st.markdown(f"<div class='kv'>{triten_reasons_txt}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='kv'>{'• ' + '\\n• '.join(triten_reasons) if triten_reasons else '—'}</div>", unsafe_allow_html=True)
 
     # =========================
     # Summary
@@ -979,9 +967,9 @@ Now, we know many people don’t report these incidents. So, coming forward help
     add_line(12, f"Submission: {rs_submit_how or '—'} | Company responded: {'Yes' if rs_received_response else 'No'} | Detail: {rs_response_detail or '—'}")
     add_line(13, f"Phone / Email: {caller_phone or '—'} / {caller_email or '—'}")
     add_line(14, f"Screen — Gov ID: {'Yes' if gov_id else 'No'} | Female: {'Yes' if female_rider else 'No'} | Rider (not driver): {'Yes' if rider_not_driver else 'No'} | Felony: {'Yes' if felony else 'No'} | Has Atty: {'Yes' if has_atty else 'No'} | SSN captured: {'Yes' if full_ssn_on_file or ssn_last4 else 'No'}")
-    add_line(15, f"Victim carried weapon: {'Yes' if client_weapon else 'No'} | Non-lethal items: {join_list(nonlethal_selected)} | Lethal carried: {'Yes' if client_weapon_lethal else 'No'}")
-    add_line(16, f"Driver weapon/force detail: {driver_force_detail or '—'}")
-    add_line(17, f"Acts selected: {join_list(acts_selected)} | Aggravators: {join_list(aggr_selected)}")
+    add_line(15, f"Victim carried weapon (Wagstaff only): {'Yes' if client_weapon else 'No'} | Non-lethal items: {join_list(nonlethal_selected)} | Lethal carried: {'Yes' if client_weapon_lethal else 'No'}")
+    add_line(16, f"Driver weapon/force used/threatened: {driver_used_weapon} | Detail: {driver_force_detail or '—'}")
+    add_line(17, f"Acts selected: {join_list(acts_selected)} | Aggravators: {join_list(aggr_selected)} | Verbal-only: {'Yes' if verbal_only else 'No'} | Attempt-only: {'Yes' if attempt_only else 'No'}")
     add_line(18, f"Tier: {tier_label}")
     add_line(19, f"SOL rule applied: {sol_rule_text} | SOL end: {('No SOL' if sol_years is None else fmt_dt(sol_end))} | File-by (SOL−45d): {file_by_str}")
     if earliest_report_date is not None:
@@ -1017,13 +1005,12 @@ Now, we know many people don’t report these incidents. So, coming forward help
     if note_id_type == "Other":
         note_id_other = st.text_input("If Other, specify ID type", key="note_id_other")
 
-    # Receipt reflection per platform (firm-specific)
-    # Build friendly evidence summary (PDF / Screenshot / Email / In-App) for the chosen platform only
+    # Receipt reflection per platform
     ev_flags = {
-        "PDF": any(["PDF" in receipt_evidence]) or any_pdf_uploaded,
-        "Screenshot": any(["Screenshot of Receipt" in receipt_evidence]),
-        "Email": any(["Email" in receipt_evidence]),
-        "In-App": any(["In-App Receipt (screenshot)" in receipt_evidence]),
+        "PDF": ("PDF" in receipt_evidence) or any_pdf_uploaded,
+        "Screenshot": ("Screenshot of Receipt" in receipt_evidence),
+        "Email": ("Email" in receipt_evidence),
+        "In-App": ("In-App Receipt (screenshot)" in receipt_evidence),
     }
     ev_parts = []
     if ev_flags["PDF"]: ev_parts.append("PDF receipt")
@@ -1139,6 +1126,8 @@ Now, we know many people don’t report these incidents. So, coming forward help
     pre_state_idx = STATE_LIST_FORM.index(state) if state in STATE_LIST_FORM else 0
     pre_zip = ""
 
+    client_contact_text = []
+
     if assigned_firm_name == "Triten Law Group":
         st.subheader("TriTen – Intake CLIENT CONTACT DETAILS")
 
@@ -1160,7 +1149,8 @@ Now, we know many people don’t report these incidents. So, coming forward help
         tri_best_time = st.text_input("Best Time to Contact", key="tri_best_time")
         tri_pref_method = st.selectbox("Preferred Method of Contact", ["Phone", "Email", "Phone & Email"], index=2, key="tri_pref_method")
 
-        tri_dob = st.date_input("Date of Birth (mm-dd-yyyy)", value=None, key="tri_dob")
+        tri_dob = st.date_input("Date of Birth (mm-dd-yyyy)", value=None, key="tri_dob",
+                                min_value=date(1969,1,1), max_value=date.today())
         tri_age = calc_age(tri_dob) if tri_dob else ""
         st.caption(f"Age: {tri_age if tri_age!='' else '—'}")
 
@@ -1170,7 +1160,7 @@ Now, we know many people don’t report these incidents. So, coming forward help
         tri_claim_for = st.radio("Does the claim pertain to you or another person?", ["Myself","Someone else"], horizontal=True, key="tri_claim_for")
         tri_marital = st.selectbox("Current marital status", ["Single","Married","Divorced","Widowed"], key="tri_marital")
 
-        # NEW: Affirmation at the end of TriTen section
+        # Affirmation
         st.markdown("---")
         st.markdown("**Affirmation**")
         tri_affirmation = st.radio(
@@ -1180,6 +1170,21 @@ Now, we know many people don’t report these incidents. So, coming forward help
             ["Yes", "No"], horizontal=True, key="tri_affirmation"
         )
         st.markdown("**INTAKE ENDS HERE**")
+
+        client_contact_text = [
+            "CLIENT CONTACT DETAILS — TriTen",
+            f"Name: {tri_first} {tri_middle} {tri_last}".strip(),
+            f"Maiden: {tri_maiden}",
+            f"Preferred: {tri_pref_name}",
+            f"Email: {tri_email}",
+            f"Address: {tri_addr}, {tri_city}, {tri_state} {tri_zip}",
+            f"Home: {tri_home_phone} | Cell: {tri_cell_phone}",
+            f"Best Time: {tri_best_time} | Pref Method: {tri_pref_method}",
+            f"DOB: {fmt_date(tri_dob) if tri_dob else '—'} (Age: {tri_age if tri_age!='' else '—'})",
+            f"SSN: {tri_ssn}",
+            f"Claim For: {tri_claim_for} | Marital: {tri_marital}",
+            f"Affirmation: {tri_affirmation}",
+        ]
 
     elif assigned_firm_name == "Wagstaff Law Firm":
         st.subheader("Wagstaff – CLIENT CONTACT DETAILS")
@@ -1198,7 +1203,8 @@ Now, we know many people don’t report these incidents. So, coming forward help
         wag_best_time = st.text_input("Best Time to Contact", value="", key="wag_best_time")
         wag_pref_method = st.selectbox("Preferred Method of Contact", ["Phone", "Email", "Phone & Email"], index=2, key="wag_pref_method")
 
-        wag_dob = st.date_input("Date of Birth (mm-dd-yyyy)", value=None, key="wag_dob")
+        wag_dob = st.date_input("Date of Birth (mm-dd-yyyy)", value=None, key="wag_dob",
+                                min_value=date(1969,1,1), max_value=date.today())
         wag_age = calc_age(wag_dob) if wag_dob else ""
         st.caption(f"Age: {wag_age if wag_age!='' else '—'}")
 
@@ -1207,15 +1213,30 @@ Now, we know many people don’t report these incidents. So, coming forward help
 
         wag_claim_for = st.radio("Does the claim pertain to you or another person?", ["Myself","Someone Else"], horizontal=True, key="wag_claim_for")
 
-        # Show prior-firm answer from top (read-only context)
         st.caption(f"Prior firm signed/disqualified earlier: {'Yes' if prior_firm_any else 'No'}"
                    f"{(' — ' + prior_firm_note) if (prior_firm_any and prior_firm_note) else ''}")
 
         st.subheader("INJURED PARTY DETAILS")
-        inj_full = st.text_input("Injured/Deceased Party's Full Name (First, Middle, & Last Name)", value=f"{pre_first} {pre_mid} {pre_last}".strip(), key="wag_inj_full")
+        inj_full = st.text_input("Injured/Deceased Party's Full Name (First, Middle, & Last Name)",
+                                 value=f"{wag_first} {wag_middle} {wag_last}".strip(), key="wag_inj_full")
         inj_gender_default = "Female" if female_rider else "—"
         inj_gender = st.text_input("Injured Party Gender", value=inj_gender_default, key="wag_inj_gender")
-        inj_dob = st.date_input("Injured/Deceased Party's DOB (mm-dd-yyyy)", value=None, key="wag_inj_dob")
+        inj_dob = st.date_input("Injured/Deceased Party's DOB (mm-dd-yyyy)", value=None, key="wag_inj_dob",
+                                min_value=date(1969,1,1), max_value=date.today())
+
+        client_contact_text = [
+            "CLIENT CONTACT DETAILS — Wagstaff",
+            f"Name: {wag_first} {wag_middle} {wag_last}".strip(),
+            f"Email: {wag_email}",
+            f"Address: {wag_addr}, {wag_city}, {wag_state} {wag_zip}",
+            f"Home: {wag_home_phone} | Cell: {wag_cell_phone}",
+            f"Best Time: {wag_best_time} | Pref Method: {wag_pref_method}",
+            f"DOB: {fmt_date(wag_dob) if wag_dob else '—'} (Age: {wag_age if wag_age!='' else '—'})",
+            f"SSN: {wag_ssn}",
+            f"Claim For: {wag_claim_for}",
+            f"Injured Party: {inj_full} | Gender: {inj_gender} | DOB: {fmt_date(inj_dob) if inj_dob else '—'}",
+            f"Prior Firm Signed/Disqualified: {'Yes' if prior_firm_any else 'No'}{(' — ' + prior_firm_note) if (prior_firm_any and prior_firm_note) else ''}",
+        ]
 
     else:
         st.info("Select a firm above to reveal the tailored contact section.")
@@ -1273,7 +1294,7 @@ Now, we know many people don’t report these incidents. So, coming forward help
         # Screening
         "GovIDProvided": gov_id, "FemaleRider": female_rider, "RiderNotDriver": rider_not_driver, "HasAttorney": has_atty, "Felony": felony,
         "ClientWeapon": client_weapon, "ClientWeaponNonLethal": ", ".join(nonlethal_selected) if nonlethal_selected else "",
-        "ClientWeaponLethal": client_weapon_lethal, "DriverForceDetail": driver_force_detail,
+        "ClientWeaponLethal": client_weapon_lethal, "DriverUsedWeaponOrForce": driver_used_weapon, "DriverForceDetail": driver_force_detail,
         "VerbalOnly": verbal_only, "AttemptOnly": attempt_only,
         # Acts
         "Acts_RapePenetration": rape, "Acts_ForcedOralForcedTouch": forced_oral, "Acts_TouchingKissing": touching,
@@ -1294,7 +1315,7 @@ Now, we know many people don’t report these incidents. So, coming forward help
         # Notes & Marketing (incl ID/PLAID, receipts)
         "MarketingSource": marketing_source,
         "LawFirmNote": lawfirm_note,
-        "ID_Type_PLAID": (note_id_other if note_id_type=="Other" else note_id_type),
+        "ID_Type_PLAID": (note_id_other if note_id_type=='Other' else note_id_type),
         "PLAID_Passed": note_plaid_passed,
         "Receipts_Note": receipts_line,
         "GDriveURL": note_gdrive,
@@ -1302,6 +1323,7 @@ Now, we know many people don’t report these incidents. So, coming forward help
         "Elements_Report": elements.strip()
     }
 
+    # Add firm-specific contact fields to export
     if assigned_firm_name == "Triten Law Group":
         export_payload.update({
             "TriTen_FirstName": st.session_state.get("tri_first",""),
@@ -1401,5 +1423,14 @@ Now, we know many people don’t report these incidents. So, coming forward help
         mime="text/csv"
     )
 
-render()
+    # NEW: Client Contact Details (.txt)
+    if client_contact_text:
+        client_contact_blob = "\n".join(client_contact_text)
+        st.download_button(
+            "Download Client Contact Details (.txt)",
+            data=client_contact_blob.encode("utf-8"),
+            file_name="client_contact_details.txt",
+            mime="text/plain"
+        )
 
+render()
